@@ -1,25 +1,28 @@
 {
   "name": "vision-lumina-player",
+  "productName": "Vision Lumina",
   "version": "1.0.0",
   "description": "Video Player",
+  "author": "Your Name",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "NODE_ENV=development electron .",
-    "build": "electron-builder",
+    "dev": "vite",
+    "build": "tsc && vite build",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
-    "build-linux": "electron-builder --linux"
+    "build-linux": "electron-builder --linux",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
   },
   "keywords": ["video", "player", "electron"],
-  "author": "Your Name",
-  "license": "MIT",
+
   "devDependencies": {
     "electron": "latest",
     "electron-builder": "latest"
   },
   "build": {
-    "appId": "com.yourname.vision-lumina-player",
+    "appId": "com.zefair-network.vision-lumina-player",
     "productName": "Vision Lumina Player",
     "directories": {
       "output": "dist"
