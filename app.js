@@ -76,7 +76,8 @@ class VisionLumina {
         
         // Load video
         this.video.load();
-        
+        this.setupElectronIntegration();
+
         console.log('Vision Lumina initialized successfully');
     }
     
@@ -212,7 +213,41 @@ class VisionLumina {
             });
         });
     }
-    
+    setupElectronIntegration() {
+        // Слушаем сообщение о загрузке видео из main процесса
+        ipcRenderer.on('load-video', (event, videoPath) => {
+            this.loadVideoFile(videoPath);
+        });
+
+        // Загружаем видео при старте если путь передан
+        ipcRenderer.invoke('get-video-path').then(videoPath => {
+            if (videoPath) {
+                this.loadVideoFile(videoPath);
+            }
+        });
+    }
+
+    loadVideoFile(filePath) {
+        if (!filePath) return;
+
+        // Конвертируем путь в file:// URL для локальных файлов
+        const fileUrl = filePath.startsWith('file://')
+            ? filePath
+            : `file://${filePath.replace(/\\/g, '/')}`;
+
+        // Устанавливаем источник видео
+        this.video.src = fileUrl;
+
+        // Показываем название файла
+        const fileName = filePath.split(/[\\/]/).pop();
+        document.title = `Vision Lumina Player - ${fileName}`;
+
+        // Загружаем и запускаем
+        this.video.load();
+
+        console.log('Loaded video:', fileName);
+    }
+
     isClickInsideSubmenus(target) {
         return this.sleepTimerSubmenu.contains(target) || 
                this.speedSubmenu.contains(target) || 
