@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Vision Lumina </title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="player-container">
+        <!-- Video Element -->
+        <video id="videoPlayer" preload="metadata">
+            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+            Ваш браузер не поддерживает видео.
+        </video>
+        
+        <!-- Control Bar -->
+        <div id="controlBar" class="control-bar">
+            <!-- Progress Bar (inside control bar) -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-buffered" id="progressBuffered"></div>
+                    <div class="progress-played" id="progressPlayed"></div>
+                    <div class="progress-handle" id="progressHandle"></div>
+                </div>
+            </div>
+            
+            <div class="controls-wrapper">
+                <div class="controls-left">
+                    <!-- Large Play/Pause Button -->
+                    <button id="playPauseBtn" class="control-btn control-btn--large">
+                        <svg class="play-icon" viewBox="0 0 24 24" fill="white">
+                            <polygon points="5,3 19,12 5,21"></polygon>
+                        </svg>
+                        <svg class="pause-icon hidden" viewBox="0 0 24 24" fill="white">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                    </button>
+                    
+                    <!-- Next/Skip Button -->
+                    <button id="nextBtn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="white">
+                            <polygon points="5,4 15,12 5,20"></polygon>
+                            <rect x="15" y="4" width="4" height="16"></rect>
+                        </svg>
+                    </button>
+                    
+                    <!-- Time Display -->
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span class="time-separator">/</span>
+                        <span id="totalTime">0:00</span>
+                    </div>
+                    
+                    <!-- Chapter Indicator (hidden initially) -->
+                    <button id="chapterBtn" class="control-btn chapter-btn hidden">
+                        <span>Intro</span>
+                    </button>
+                </div>
+                
+                <div class="controls-right">
+                    <!-- Volume Button -->
+                    <button id="volumeBtn" class="control-btn">
+                        <svg class="volume-high" viewBox="0 0 24 24" fill="white">
+                            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
+                            <path d="m19.07 4.93-1.41 1.41A7 7 0 0 1 19 12a7 7 0 0 1-1.34 5.66l1.41 1.41A9 9 0 0 0 21 12a9 9 0 0 0-1.93-7.07Z"></path>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07l1.41 1.41a7 7 0 0 0 0-9.9Z"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- CC Subtitles -->
+                    <button id="ccBtn" class="control-btn cc-btn">
+                        <span>CC</span>
+                    </button>
+                    
+                    <!-- Settings with HD Badge -->
+                    <button id="settingsBtn" class="control-btn settings-btn">
+                        <svg viewBox="0 0 24 24" fill="white">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="m12 1 2.8 2.8c.2.2.5.2.7 0L18.8 1c.4-.4 1-.1 1 .5v2.8c0 .3.2.5.5.5H23c.6 0 .9.6.5 1l-2.8 3.3c-.2.2-.2.5 0 .7L23 12c.4.4.1 1-.5 1h-2.8c-.3 0-.5.2-.5.5V16c0 .6-.6.9-1 .5l-3.3-2.8c-.2-.2-.5-.2-.7 0L12 16c-.4.4-1 .1-1-.5v-2.8c0-.3-.2-.5-.5-.5H8c-.6 0-.9-.6-.5-1l2.8-3.3c.2-.2.2-.5 0-.7L8 5c-.4-.4-.1-1 .5-1h2.8c.3 0 .5-.2.5-.5V1c0-.6.6-.9 1-.5Z"></path>
+                        </svg>
+                        <span class="hd-badge">HD</span>
+                    </button>
+                    
+                    <!-- Picture-in-Picture -->
+                    <button id="pipBtn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="white">
+                            <rect x="2" y="3" width="20" height="14" rx="2" fill="none" stroke="white" stroke-width="2"></rect>
+                            <rect x="13" y="8" width="7" height="5" rx="1" fill="white"></rect>
+                        </svg>
+                    </button>
+                    
+                    <!-- Theater Mode -->
+                    <button id="theaterBtn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="white">
+                            <rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="white" stroke-width="2"></rect>
+                        </svg>
+                    </button>
+                    
+                    <!-- Fullscreen -->
+                    <button id="fullscreenBtn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="white">
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Menu -->
+        <div id="settingsMenu" class="settings-menu hidden">
+            <div class="settings-item">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
+                    </svg>
+                    <span>Stable Volume</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="stableVolumeToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="settings-item">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                    </svg>
+                    <span>Ambient mode</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="ambientToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="settings-item clickable" data-menu="subtitles">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                        <text x="12" y="13" text-anchor="middle" fill="black" font-size="8">CC</text>
+                    </svg>
+                    <span>Subtitles/CC (1)</span>
+                </div>
+                <div class="settings-value">
+                    <span>Off</span>
+                    <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="settings-item clickable" data-menu="sleep">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12,6 12,12 16,14"></polyline>
+                    </svg>
+                    <span>Sleep timer</span>
+                </div>
+                <div class="settings-value">
+                    <span id="sleepTimerValue">Off</span>
+                    <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="settings-item clickable" data-menu="speed">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12,6 12,12 16,14"></polyline>
+                    </svg>
+                    <span>Playback speed</span>
+                </div>
+                <div class="settings-value">
+                    <span id="playbackSpeedValue">Normal</span>
+                    <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="settings-item clickable" data-menu="quality">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                        <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                        <path d="M8 21h8"></path>
+                        <path d="M12 17v4"></path>
+                    </svg>
+                    <span>Quality</span>
+                </div>
+                <div class="settings-value">
+                    <span id="qualityValue">1080p60 HD</span>
+                    <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Submenus for settings -->
+        <div id="sleepTimerSubmenu" class="settings-submenu hidden">
+            <div class="submenu-header">
+                <button class="back-btn" id="sleepTimerBack">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <span>Sleep timer</span>
+            </div>
+            <div class="submenu-option" data-value="Off">Off</div>
+            <div class="submenu-option" data-value="10 minutes">10 minutes</div>
+            <div class="submenu-option" data-value="15 minutes">15 minutes</div>
+            <div class="submenu-option" data-value="30 minutes">30 minutes</div>
+            <div class="submenu-option" data-value="60 minutes">60 minutes</div>
+        </div>
+        
+        <div id="speedSubmenu" class="settings-submenu hidden">
+            <div class="submenu-header">
+                <button class="back-btn" id="speedBack">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <span>Playback speed</span>
+            </div>
+            <div class="submenu-option" data-value="0.25">0.25</div>
+            <div class="submenu-option" data-value="0.5">0.5</div>
+            <div class="submenu-option" data-value="0.75">0.75</div>
+            <div class="submenu-option active" data-value="Normal">Normal</div>
+            <div class="submenu-option" data-value="1.25">1.25</div>
+            <div class="submenu-option" data-value="1.5">1.5</div>
+            <div class="submenu-option" data-value="1.75">1.75</div>
+            <div class="submenu-option" data-value="2">2</div>
+        </div>
+        
+        <div id="qualitySubmenu" class="settings-submenu hidden">
+            <div class="submenu-header">
+                <button class="back-btn" id="qualityBack">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <span>Quality</span>
+            </div>
+            <div class="submenu-option" data-value="Auto (1080p60)">Auto (1080p60)</div>
+            <div class="submenu-option active" data-value="1080p60 HD">1080p60 HD</div>
+            <div class="submenu-option" data-value="1080p HD">1080p HD</div>
+            <div class="submenu-option" data-value="720p60 HD">720p60 HD</div>
+            <div class="submenu-option" data-value="720p HD">720p HD</div>
+            <div class="submenu-option" data-value="480p">480p</div>
+            <div class="submenu-option" data-value="360p">360p</div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
