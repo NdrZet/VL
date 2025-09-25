@@ -18,7 +18,7 @@ function createWindow() {
             webSecurity: false // Разрешаем загрузку локальных файлов
         },
         titleBarStyle: 'default',
-        icon: path.join(__dirname, 'icon.ico') // Добавьте иконку если нужно
+        icon: path.join(__dirname, 'favicon.ico') // Добавьте иконку если нужно
     });
 
     mainWindow.setMenuBarVisibility(false);
