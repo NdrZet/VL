@@ -40,6 +40,7 @@
     ],
     "win": {
       "target": "nsis",
+      "icon": "favicon.ico",
       "fileAssociations": [
         {
           "ext": "mp4",
