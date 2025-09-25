@@ -3,18 +3,15 @@
   "productName": "Vision Lumina",
   "version": "1.0.0",
   "description": "Video Player",
-  "author": "Your Name",
+  "author": "Karim",
   "main": "main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "start": "electron .",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
-    "build-linux": "electron-builder --linux",
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "build-linux": "electron-builder --linux"
   },
+
   "keywords": ["video", "player", "electron"],
 
   "devDependencies": {

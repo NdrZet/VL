@@ -21,6 +21,8 @@ function createWindow() {
         icon: path.join(__dirname, 'icon.ico') // Добавьте иконку если нужно
     });
 
+    mainWindow.setMenuBarVisibility(false);
+
     // Загружаем index.html
     mainWindow.loadFile('index.html');
 
