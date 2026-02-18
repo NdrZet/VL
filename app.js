@@ -1048,9 +1048,11 @@ class VisionLumina {
 
     onVideoLoaded() {
         this.updateTimeDisplay();
-        // Switch from home screen to player
-        if (this.homeScreen) this.homeScreen.style.display = 'none';
-        this.playerContainer.style.display = 'block';
+        // Only switch to player if user explicitly opened a file
+        if (this.currentVideoPath) {
+            if (this.homeScreen) this.homeScreen.style.display = 'none';
+            this.playerContainer.style.display = 'block';
+        }
         console.log('Video loaded successfully');
     }
 
@@ -1697,18 +1699,8 @@ class HomeLibrary {
         const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
 
         for (const dir of this.dirs) {
-            let files = [];
-            try {
-                files = fs.readdirSync(dir)
-                    .filter(f => videoExt.test(f))
-                    .sort()
-                    .map(f => path.join(dir, f));
-            } catch (e) {
-                console.warn('Cannot read dir:', dir);
-                continue;
-            }
+            const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
             if (files.length === 0) continue;
-
             this.sectionsEl.appendChild(this.buildSection(dir, files, path));
         }
 
@@ -1791,6 +1783,31 @@ class HomeLibrary {
         });
 
         return card;
+    }
+
+    // ── Recursive File Scan ───────────────────────────────────────────────────
+
+    getVideoFilesRecursive(dir, fs, path, videoExt, depth = 0) {
+        if (depth > 6) return []; // guard against symlink loops / very deep trees
+        let results = [];
+        try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                // Skip hidden folders (starting with dot)
+                if (entry.name.startsWith('.')) continue;
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    const sub = this.getVideoFilesRecursive(fullPath, fs, path, videoExt, depth + 1);
+                    results = results.concat(sub);
+                } else if (entry.isFile() && videoExt.test(entry.name)) {
+                    results.push(fullPath);
+                }
+            }
+        } catch (e) {
+            console.warn('Cannot read dir:', dir, e.message);
+        }
+        // Sort alphabetically by full path so subfolders are ordered predictably
+        return results.sort();
     }
 
     // ── Thumbnail Generation ──────────────────────────────────────────────────
