@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -151,5 +151,35 @@ ipcMain.handle('get-video-info', (event, filePath) => {
             exists: false,
             error: error.message
         };
+    }
+});
+
+// Диалог выбора файла (субтитры, и др.)
+ipcMain.handle('show-open-dialog', async (event, options) => {
+    const result = await dialog.showOpenDialog(mainWindow, options);
+    return result;
+});
+
+// Диалог выбора папки (для библиотеки)
+ipcMain.handle('show-directory-dialog', async (event) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select folder to add to library',
+        properties: ['openDirectory']
+    });
+    return result;
+});
+
+// Получение списка видеофайлов в директории (для плейлиста)
+ipcMain.handle('get-directory-files', (event, dirPath) => {
+    const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
+        '.webm', '.m4v', '.3gp', '.ogv', '.ts', '.mts'];
+    try {
+        const files = fs.readdirSync(dirPath)
+            .filter(f => videoExtensions.includes(path.extname(f).toLowerCase()))
+            .map(f => path.join(dirPath, f))
+            .sort();
+        return files;
+    } catch (error) {
+        return [];
     }
 });

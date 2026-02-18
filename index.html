@@ -8,13 +8,81 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="player-container">
+
+    <!-- ═══════════════════════════════════════════════════════ HOME SCREEN ══ -->
+    <div id="homeScreen" class="home-screen">
+        <div class="home-header">
+            <div class="home-logo">
+                <svg class="home-logo-icon" viewBox="0 0 24 24">
+                    <polygon points="7,3 21,12 7,21" fill="currentColor" stroke="none"></polygon>
+                </svg>
+                <span class="home-logo-text">Vision Lumina</span>
+            </div>
+            <div class="home-actions">
+                <button id="addFolderBtn" class="home-btn home-btn--secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        <line x1="12" y1="11" x2="12" y2="17"></line>
+                        <line x1="9" y1="14" x2="15" y2="14"></line>
+                    </svg>
+                    Add folder
+                </button>
+                <button id="openFileBtn" class="home-btn home-btn--primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Open file
+                </button>
+            </div>
+        </div>
+
+        <div class="home-content">
+            <!-- Empty state -->
+            <div id="libraryEmpty" class="library-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <p>No videos in your library yet.</p>
+                <p>Add a folder or drop a video file here to get started.</p>
+            </div>
+
+            <!-- Library sections (one per saved directory, injected by HomeLibrary) -->
+            <div id="librarySections" class="library-sections hidden"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ PLAYER ════════ -->
+    <div class="player-container" style="display:none">
+        <!-- Home button overlay: top-left corner -->
+        <button id="homeBtn" class="home-btn-overlay" title="Back to library">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+        </button>
+
+        <!-- Ambient mode canvas (behind video) -->
+        <canvas id="ambientCanvas"></canvas>
+
         <!-- Video Element -->
         <video id="videoPlayer" preload="metadata">
             <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+            <track id="subtitleTrack" kind="subtitles" default>
             Ваш браузер не поддерживает видео.
         </video>
-        
+
+        <!-- Hidden preview video for frame extraction on progress bar hover -->
+        <video id="previewVideo" preload="none" muted style="display:none" aria-hidden="true"></video>
+
+        <!-- Sleep notification -->
+        <div id="sleepNotification" class="sleep-notification"></div>
+
         <!-- Control Bar -->
         <div id="controlBar" class="control-bar">
             <!-- Progress Bar (inside control bar) -->
@@ -24,97 +92,109 @@
                     <div class="progress-played" id="progressPlayed"></div>
                     <div class="progress-handle" id="progressHandle"></div>
                 </div>
+                <!-- Tooltip: canvas preview + time text -->
+                <div id="progressTooltip" class="progress-tooltip">
+                    <canvas id="previewCanvas" class="preview-canvas" width="160" height="90"></canvas>
+                    <span id="progressTooltipTime" class="progress-tooltip-time">0:00</span>
+                </div>
             </div>
-            
+
             <div class="controls-wrapper">
                 <div class="controls-left">
                     <!-- Large Play/Pause Button -->
                     <button id="playPauseBtn" class="control-btn control-btn--large">
-                        <svg class="play-icon" viewBox="0 0 24 24" fill="white">
-                            <polygon points="5,3 19,12 5,21"></polygon>
+                        <svg class="play-icon" viewBox="0 0 24 24">
+                            <polygon points="7,3 21,12 7,21" style="fill:currentColor;stroke:none;"></polygon>
                         </svg>
-                        <svg class="pause-icon hidden" viewBox="0 0 24 24" fill="white">
-                            <rect x="6" y="4" width="4" height="16"></rect>
-                            <rect x="14" y="4" width="4" height="16"></rect>
+                        <svg class="pause-icon hidden" viewBox="0 0 24 24">
+                            <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"></rect>
+                            <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"></rect>
                         </svg>
                     </button>
-                    
+
                     <!-- Next/Skip Button -->
                     <button id="nextBtn" class="control-btn">
-                        <svg viewBox="0 0 24 24" fill="white">
-                            <polygon points="5,4 15,12 5,20"></polygon>
-                            <rect x="15" y="4" width="4" height="16"></rect>
+                        <svg viewBox="0 0 24 24">
+                            <polygon points="5,4 14,12 5,20" fill="currentColor" stroke="none"></polygon>
+                            <rect x="15" y="4" width="3" height="16" rx="1" fill="currentColor" stroke="none"></rect>
                         </svg>
                     </button>
-                    
+
                     <!-- Time Display -->
                     <div class="time-display">
                         <span id="currentTime">0:00</span>
                         <span class="time-separator">/</span>
                         <span id="totalTime">0:00</span>
                     </div>
-                    
+
                     <!-- Chapter Indicator (hidden initially) -->
                     <button id="chapterBtn" class="control-btn chapter-btn hidden">
                         <span>Intro</span>
                     </button>
                 </div>
-                
+
                 <div class="controls-right">
-                    <!-- Volume Button -->
-                    <button id="volumeBtn" class="control-btn">
-                        <svg class="volume-high" viewBox="0 0 24 24" fill="white">
-                            <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
-                            <path d="m19.07 4.93-1.41 1.41A7 7 0 0 1 19 12a7 7 0 0 1-1.34 5.66l1.41 1.41A9 9 0 0 0 21 12a9 9 0 0 0-1.93-7.07Z"></path>
-                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07l1.41 1.41a7 7 0 0 0 0-9.9Z"></path>
-                        </svg>
-                    </button>
-                    
+                    <!-- Volume Control (button + slider) -->
+                    <div class="volume-control">
+                        <button id="volumeBtn" class="control-btn">
+                            <svg class="volume-high" viewBox="0 0 24 24">
+                                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" stroke="none"></polygon>
+                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                <path d="M19.07 4.93a9 9 0 0 1 0 14.14"></path>
+                            </svg>
+                            <svg class="volume-muted hidden" viewBox="0 0 24 24">
+                                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" stroke="none"></polygon>
+                                <line x1="23" y1="9" x2="17" y2="15"></line>
+                                <line x1="17" y1="9" x2="23" y2="15"></line>
+                            </svg>
+                        </button>
+                        <input type="range" id="volumeSlider" class="volume-slider"
+                               min="0" max="1" step="0.01" value="0.5">
+                    </div>
+
                     <!-- CC Subtitles -->
-                    <button id="ccBtn" class="control-btn cc-btn">
+                    <button id="ccBtn" class="control-btn cc-btn" style="opacity:0.6" title="Subtitles: Off">
                         <span>CC</span>
                     </button>
-                    
+
                     <!-- Settings with HD Badge -->
                     <button id="settingsBtn" class="control-btn settings-btn">
-                        <svg viewBox="0 0 24 24" fill="white">
+                        <svg viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="3"></circle>
-                            <path d="m12 1 2.8 2.8c.2.2.5.2.7 0L18.8 1c.4-.4 1-.1 1 .5v2.8c0 .3.2.5.5.5H23c.6 0 .9.6.5 1l-2.8 3.3c-.2.2-.2.5 0 .7L23 12c.4.4.1 1-.5 1h-2.8c-.3 0-.5.2-.5.5V16c0 .6-.6.9-1 .5l-3.3-2.8c-.2-.2-.5-.2-.7 0L12 16c-.4.4-1 .1-1-.5v-2.8c0-.3-.2-.5-.5-.5H8c-.6 0-.9-.6-.5-1l2.8-3.3c.2-.2.2-.5 0-.7L8 5c-.4-.4-.1-1 .5-1h2.8c.3 0 .5-.2.5-.5V1c0-.6.6-.9 1-.5Z"></path>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                         </svg>
                         <span class="hd-badge">HD</span>
                     </button>
-                    
+
                     <!-- Picture-in-Picture -->
                     <button id="pipBtn" class="control-btn">
-                        <svg viewBox="0 0 24 24" fill="white">
-                            <rect x="2" y="3" width="20" height="14" rx="2" fill="none" stroke="white" stroke-width="2"></rect>
-                            <rect x="13" y="8" width="7" height="5" rx="1" fill="white"></rect>
+                        <svg viewBox="0 0 24 24">
+                            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                            <rect x="12" y="9" width="8" height="5" rx="1" fill="currentColor" stroke="none"></rect>
                         </svg>
                     </button>
-                    
-                    <!-- Theater Mode -->
-                    <button id="theaterBtn" class="control-btn">
-                        <svg viewBox="0 0 24 24" fill="white">
-                            <rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="white" stroke-width="2"></rect>
-                        </svg>
-                    </button>
-                    
+
                     <!-- Fullscreen -->
                     <button id="fullscreenBtn" class="control-btn">
-                        <svg viewBox="0 0 24 24" fill="white">
-                            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3"></path>
+                        <svg viewBox="0 0 24 24">
+                            <polyline points="15,3 21,3 21,9"></polyline>
+                            <polyline points="9,21 3,21 3,15"></polyline>
+                            <line x1="21" y1="3" x2="14" y2="10"></line>
+                            <line x1="3" y1="21" x2="10" y2="14"></line>
                         </svg>
                     </button>
                 </div>
             </div>
         </div>
-        
+
         <!-- Settings Menu -->
         <div id="settingsMenu" class="settings-menu hidden">
             <div class="settings-item">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
-                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
+                    <svg class="settings-icon" viewBox="0 0 24 24">
+                        <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" fill="currentColor" stroke="none"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a9 9 0 0 1 0 14.14"></path>
                     </svg>
                     <span>Stable Volume</span>
                 </div>
@@ -123,12 +203,19 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            
+
             <div class="settings-item">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <circle cx="12" cy="12" r="6"></circle>
+                    <svg class="settings-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                     </svg>
                     <span>Ambient mode</span>
                 </div>
@@ -137,26 +224,44 @@
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            
+
             <div class="settings-item clickable" data-menu="subtitles">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                    <svg class="settings-icon" viewBox="0 0 24 24">
                         <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                        <text x="12" y="13" text-anchor="middle" fill="black" font-size="8">CC</text>
+                        <line x1="6" y1="10" x2="18" y2="10"></line>
+                        <line x1="6" y1="14" x2="14" y2="14"></line>
                     </svg>
-                    <span>Subtitles/CC (1)</span>
+                    <span>Subtitles/CC</span>
                 </div>
                 <div class="settings-value">
-                    <span>Off</span>
+                    <span id="subtitlesValue">Off</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
                 </div>
             </div>
-            
+
+            <div class="settings-item clickable" data-menu="audiotrack">
+                <div class="settings-label">
+                    <svg class="settings-icon" viewBox="0 0 24 24">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <span>Audio track</span>
+                </div>
+                <div class="settings-value">
+                    <span id="audioTrackValue">Default</span>
+                    <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
+                        <polyline points="9,18 15,12 9,6"></polyline>
+                    </svg>
+                </div>
+            </div>
+
             <div class="settings-item clickable" data-menu="sleep">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                    <svg class="settings-icon" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12,6 12,12 16,14"></polyline>
                     </svg>
@@ -169,12 +274,11 @@
                     </svg>
                 </div>
             </div>
-            
+
             <div class="settings-item clickable" data-menu="speed">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12,6 12,12 16,14"></polyline>
+                    <svg class="settings-icon" viewBox="0 0 24 24">
+                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" fill="currentColor" stroke="none"></polygon>
                     </svg>
                     <span>Playback speed</span>
                 </div>
@@ -185,25 +289,25 @@
                     </svg>
                 </div>
             </div>
-            
+
             <div class="settings-item clickable" data-menu="quality">
                 <div class="settings-label">
-                    <svg class="settings-icon" viewBox="0 0 24 24" fill="white">
+                    <svg class="settings-icon" viewBox="0 0 24 24">
                         <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                        <path d="M8 21h8"></path>
-                        <path d="M12 17v4"></path>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
                     </svg>
                     <span>Quality</span>
                 </div>
                 <div class="settings-value">
-                    <span id="qualityValue">1080p60 HD</span>
+                    <span id="qualityValue">Auto</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
                 </div>
             </div>
         </div>
-        
+
         <!-- Submenus for settings -->
         <div id="sleepTimerSubmenu" class="settings-submenu hidden">
             <div class="submenu-header">
@@ -220,7 +324,7 @@
             <div class="submenu-option" data-value="30 minutes">30 minutes</div>
             <div class="submenu-option" data-value="60 minutes">60 minutes</div>
         </div>
-        
+
         <div id="speedSubmenu" class="settings-submenu hidden">
             <div class="submenu-header">
                 <button class="back-btn" id="speedBack">
@@ -239,7 +343,7 @@
             <div class="submenu-option" data-value="1.75">1.75</div>
             <div class="submenu-option" data-value="2">2</div>
         </div>
-        
+
         <div id="qualitySubmenu" class="settings-submenu hidden">
             <div class="submenu-header">
                 <button class="back-btn" id="qualityBack">
@@ -249,13 +353,59 @@
                 </button>
                 <span>Quality</span>
             </div>
-            <div class="submenu-option" data-value="Auto (1080p60)">Auto (1080p60)</div>
-            <div class="submenu-option active" data-value="1080p60 HD">1080p60 HD</div>
-            <div class="submenu-option" data-value="1080p HD">1080p HD</div>
-            <div class="submenu-option" data-value="720p60 HD">720p60 HD</div>
-            <div class="submenu-option" data-value="720p HD">720p HD</div>
-            <div class="submenu-option" data-value="480p">480p</div>
-            <div class="submenu-option" data-value="360p">360p</div>
+        </div>
+
+        <div id="audioSubmenu" class="settings-submenu hidden">
+            <div class="submenu-header">
+                <button class="back-btn" id="audioBack">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <span>Audio track</span>
+            </div>
+        </div>
+
+        <div id="subtitlesSubmenu" class="settings-submenu hidden">
+            <div class="submenu-header">
+                <button class="back-btn" id="subtitlesBack">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <polyline points="15,18 9,12 15,6"></polyline>
+                    </svg>
+                </button>
+                <span>Subtitles/CC</span>
+            </div>
+            <div class="submenu-option" data-value="off">Off</div>
+            <div class="submenu-option" data-value="load">Load file (.srt / .vtt)...</div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ DRAG & DROP OVERLAY ═══ -->
+    <div id="dropOverlay" class="drop-overlay hidden">
+        <div class="drop-overlay-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 16 12 12 8 16"></polyline>
+                <line x1="12" y1="12" x2="12" y2="21"></line>
+                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+            </svg>
+            <span>Drop video file to play</span>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ CONTEXT MENU ══════ -->
+    <div id="contextMenu" class="context-menu hidden">
+        <div class="context-menu-item" id="ctxCopyTimestamp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy timestamp
+        </div>
+        <div class="context-menu-item" id="ctxOpenInExplorer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Open in Explorer
         </div>
     </div>
 
