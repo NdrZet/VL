@@ -1055,6 +1055,7 @@ class VisionLumina {
             this.playerContainer.classList.remove('screen-fade-in');
             void this.playerContainer.offsetWidth; // reflow
             this.playerContainer.classList.add('screen-fade-in');
+            this.video.play().catch(e => console.warn('Autoplay blocked:', e));
         }
         console.log('Video loaded successfully');
     }
