@@ -134,6 +134,11 @@ class VisionLumina {
 
         // Library manager (initialized in init)
         this.library = null;
+        this._ffprobeTracks = [];
+
+        // Внешний аудио-элемент для AC3/DTS (транскодировано через ffmpeg)
+        this.externalAudio = null;
+        this._externalAudioPath = null;
 
         this.init();
     }
@@ -150,6 +155,7 @@ class VisionLumina {
         this.setupContextMenu();
         this.setupFramePreview();
         this.setupHomeButton();
+        this.setupMiniPlayer();
         this.library = new HomeLibrary(this);
         console.log('Vision Lumina initialized successfully');
     }
@@ -193,7 +199,20 @@ class VisionLumina {
         this.video.addEventListener('pause', () => this.onPause());
         this.video.addEventListener('ended', () => this.onVideoEnded());
         this.video.addEventListener('volumechange', () => this.onVolumeChange());
-        this.video.addEventListener('click', () => this.togglePlayPause());
+
+        // Асинхронные аудиодорожки (Chromium иногда добавляет их после loadedmetadata)
+        if (this.video.audioTracks) {
+            this.video.audioTracks.onaddtrack = () => {
+                if (this.video.audioTracks.length > this.availableAudioTracks.length) {
+                    this.populateAudioTracks();
+                }
+            };
+        }
+
+        this.video.addEventListener('click', () => {
+            if (this.isMiniMode) return; // в мини-режиме клик на видео — только перетаскивание
+            this.togglePlayPause();
+        });
 
         this.playPauseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -362,33 +381,189 @@ class VisionLumina {
         this.availableAudioTracks = [];
 
         if (this.video.audioTracks && this.video.audioTracks.length > 0) {
+            // Native API сработал — используем его
+            let nativeDefault = 0;
             for (let i = 0; i < this.video.audioTracks.length; i++) {
-                const track = this.video.audioTracks[i];
+                const t = this.video.audioTracks[i];
                 this.availableAudioTracks.push({
-                    id: track.id || String(i),
-                    label: track.label || `Track ${i + 1}`,
-                    language: track.language || '',
+                    id: t.id || String(i),
+                    label: t.label || (t.language ? `Track ${i + 1} (${t.language})` : `Track ${i + 1}`),
+                    language: t.language || '',
                     index: i,
-                    nativeTrack: track
+                    nativeTrack: t
                 });
+                // НЕ трогаем t.enabled — браузер уже выбрал правильную дорожку
+                // (например AAC вместо AC3). Только запоминаем его выбор.
+                if (t.enabled) nativeDefault = i;
             }
+            // Если браузер не включил ни одну — включаем первую вручную
+            const anyEnabled = Array.from(
+                { length: this.video.audioTracks.length },
+                (_, i) => this.video.audioTracks[i].enabled
+            ).some(Boolean);
+            if (!anyEnabled) {
+                this.video.audioTracks[0].enabled = true;
+                nativeDefault = 0;
+            }
+            // Если ffprobe уже вернул данные — мёрджим кодек сразу
+            if (this._ffprobeTracks.length > 0) {
+                for (let i = 0; i < this.availableAudioTracks.length && i < this._ffprobeTracks.length; i++) {
+                    this.availableAudioTracks[i].codec = this._ffprobeTracks[i].codec;
+                }
+            }
+            this.currentAudioTrack = this.availableAudioTracks[nativeDefault];
+            this.settings.audioTrack = this.currentAudioTrack.label;
+            this.audioTrackValue.textContent = this.currentAudioTrack.label;
+            this.buildAudioTrackMenu();
+            console.log(`Native audio tracks: ${this.availableAudioTracks.length}, active: ${nativeDefault}`);
+            // Если кодек уже известен и не поддерживается — запускаем extraction сразу
+            if (this.currentAudioTrack.codec && !this._isCodecSupported(this.currentAudioTrack.codec)) {
+                this._tryFfmpegAudio(nativeDefault);
+            }
+            return;
+        } else if (this._ffprobeTracks && this._ffprobeTracks.length > 0) {
+            // ffprobe уже вернул данные — применяем сразу
+            this._buildTracksFromProbe(this._ffprobeTracks);
+            return; // buildAudioTrackMenu вызывается внутри
         } else {
-            // Fallback: single default track
+            // Ни native API ни ffprobe не готовы — ставим «Default»
+            // ffprobe придёт позже и обновит список через _onFfprobeReady
             this.availableAudioTracks.push({
-                id: '0',
-                label: 'Default',
-                language: '',
-                index: 0,
-                nativeTrack: null
+                id: '0', label: 'Default', language: '', index: 0, nativeTrack: null
             });
         }
 
-        this.currentAudioTrack = this.availableAudioTracks[0];
+        this._commitAudioTracks();
+    }
+
+    // Вызывается когда ffprobe вернул результат (после loadedmetadata)
+    _onFfprobeReady(probedTracks) {
+        this._ffprobeTracks = probedTracks;
+        const nativeCount = this.video.audioTracks ? this.video.audioTracks.length : 0;
+
+        if (nativeCount === 0) {
+            // Нет native треков — строим список из ffprobe
+            if (probedTracks.length > 0) {
+                this._buildTracksFromProbe(probedTracks);
+            }
+        } else {
+            // Native треки уже показаны, но без инфо о кодеке.
+            // Дополняем кодеком из ffprobe и проверяем совместимость.
+            for (let i = 0; i < this.availableAudioTracks.length && i < probedTracks.length; i++) {
+                this.availableAudioTracks[i].codec = probedTracks[i].codec;
+            }
+            const cur = this.currentAudioTrack;
+            if (cur && cur.codec && !this._isCodecSupported(cur.codec)) {
+                console.log(`Native track ${cur.index} codec ${cur.codec} not supported, extracting...`);
+                this._tryFfmpegAudio(cur.index);
+            }
+        }
+    }
+
+    _buildTracksFromProbe(probedTracks) {
+        this.availableAudioTracks = probedTracks.map(t => ({
+            id: String(t.index),
+            label: t.label,
+            language: t.language || '',
+            codec: t.codec || '',
+            index: t.index,
+            nativeTrack: null,
+            ffprobeTrack: true,
+        }));
+        this._commitAudioTracks();
+        console.log(`ffprobe/mkv-parser tracks applied: ${this.availableAudioTracks.length}`);
+    }
+
+    _isCodecSupported(codec) {
+        if (!codec) return true; // неизвестный — считаем поддерживаемым
+        const c = codec.toUpperCase();
+        // Кодеки, которые Chromium не декодирует без внешних компонентов
+        return !['A_AC3', 'A_DTS', 'A_TRUEHD', 'A_EAC3', 'A_MLP'].some(u => c.startsWith(u));
+    }
+
+    _getBestTrackIndex() {
+        // Предпочитаем первую дорожку с поддерживаемым кодеком
+        for (let i = 0; i < this.availableAudioTracks.length; i++) {
+            if (this._isCodecSupported(this.availableAudioTracks[i].codec)) return i;
+        }
+        return 0;
+    }
+
+    _commitAudioTracks() {
+        // Для ffprobe/MKV-parser треков: предпочитаем совместимый кодек (AAC/Vorbis/Opus)
+        // над несовместимым (AC3/DTS), иначе будет тишина
+        const bestIdx = this._getBestTrackIndex();
+        this.currentAudioTrack = this.availableAudioTracks[bestIdx];
+        // Если native API доступен — применяем выбор дорожки
+        if (this.video.audioTracks && this.video.audioTracks.length > bestIdx) {
+            for (let i = 0; i < this.video.audioTracks.length; i++) {
+                this.video.audioTracks[i].enabled = (i === bestIdx);
+            }
+        }
         this.settings.audioTrack = this.currentAudioTrack.label;
         this.audioTrackValue.textContent = this.currentAudioTrack.label;
-
         this.buildAudioTrackMenu();
-        console.log(`Audio tracks found: ${this.availableAudioTracks.length}`);
+        console.log(`Audio tracks committed: ${this.availableAudioTracks.length}, best: ${bestIdx} (${this.currentAudioTrack.label})`);
+
+        // Если кодек не поддерживается Chromium (AC3/DTS/TrueHD) — транскодируем через ffmpeg
+        if (this.currentAudioTrack.codec && !this._isCodecSupported(this.currentAudioTrack.codec)) {
+            console.log(`Codec ${this.currentAudioTrack.codec} not supported. Extracting via ffmpeg...`);
+            this._tryFfmpegAudio(bestIdx);
+        }
+    }
+
+    // Транскодируем аудиодорожку через ffmpeg и воспроизводим параллельно с видео
+    async _tryFfmpegAudio(trackIndex) {
+        if (!this.currentVideoPath) return;
+        const extractingForPath = this.currentVideoPath;
+
+        this.showSleepNotification('Extracting AC3 audio via ffmpeg...', 120000);
+        try {
+            const result = await ipcRenderer.invoke('extract-audio-track', {
+                filePath: extractingForPath,
+                trackIndex
+            });
+            // Пока ждали — пользователь мог открыть другой файл
+            if (this.currentVideoPath !== extractingForPath) return;
+
+            if (!result.success) {
+                this.showSleepNotification('AC3 audio: install ffmpeg for support', 5000);
+                return;
+            }
+            // Удаляем предыдущий temp-файл
+            if (this._externalAudioPath) {
+                ipcRenderer.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
+            }
+            this._externalAudioPath = result.tempPath;
+            const fileUrl = 'file:///' + result.tempPath.replace(/\\/g, '/');
+            this._setupExternalAudio(fileUrl);
+            if (this.sleepNotification) this.sleepNotification.classList.remove('show');
+            console.log('AC3 audio ready:', result.tempPath);
+        } catch (e) {
+            console.error('Audio extraction error:', e);
+            this.showSleepNotification('AC3 audio extraction failed', 4000);
+        }
+    }
+
+    // Создаём Audio-элемент синхронизированный с видео (для AC3 через ffmpeg)
+    _setupExternalAudio(src) {
+        this._cleanupExternalAudio();
+        this.externalAudio = new Audio(src);
+        this.externalAudio.volume = (this.video.muted || this.video.volume === 0) ? 0 : this.video.volume;
+        this.externalAudio.playbackRate = this.video.playbackRate;
+        this.externalAudio.currentTime = this.video.currentTime;
+        if (this.isPlaying) {
+            this.externalAudio.play().catch(e => console.warn('External audio play failed:', e));
+        }
+    }
+
+    // Очищаем внешний аудио-элемент
+    _cleanupExternalAudio() {
+        if (this.externalAudio) {
+            this.externalAudio.pause();
+            this.externalAudio.src = '';
+            this.externalAudio = null;
+        }
     }
 
     buildAudioTrackMenu() {
@@ -426,11 +601,20 @@ class VisionLumina {
     }
 
     selectAudioTrack(track) {
-        if (this.video.audioTracks && this.video.audioTracks.length > 1) {
+        const wasPlaying = this.isPlaying;
+        const currentTime = this.video.currentTime;
+
+        // 1. Пробуем native API (работает если Chromium экспонировал треки)
+        if (this.video.audioTracks && this.video.audioTracks.length > 1 && !track.ffprobeTrack) {
             for (let i = 0; i < this.video.audioTracks.length; i++) {
                 this.video.audioTracks[i].enabled = (i === track.index);
             }
         }
+        // 2. Несовместимый кодек (AC3/DTS) или ffprobe-трек → транскодируем через ffmpeg
+        else if (track.ffprobeTrack || (track.codec && !this._isCodecSupported(track.codec))) {
+            this._tryFfmpegAudio(track.index);
+        }
+
         this.currentAudioTrack = track;
         this.settings.audioTrack = track.label;
         this.audioTrackValue.textContent = track.label;
@@ -695,9 +879,20 @@ class VisionLumina {
 
         this.currentVideoPath = filePath;
 
+        // Очищаем внешний аудио-элемент предыдущего файла
+        this._cleanupExternalAudio();
+        if (this._externalAudioPath) {
+            ipcRenderer.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
+            this._externalAudioPath = null;
+        }
+
         const fileUrl = filePath.startsWith('file://')
             ? filePath
             : `file://${filePath.replace(/\\/g, '/')}`;
+
+        // Сбрасываем ДО video.load() — иначе loadedmetadata может сработать
+        // во время await и увидеть старые данные предыдущего файла
+        this._ffprobeTracks = [];
 
         this.video.src = fileUrl;
 
@@ -711,6 +906,15 @@ class VisionLumina {
 
         // Reset subtitles when switching video
         this.clearSubtitles();
+
+        // Пробуем ffprobe/mkv-parser параллельно
+        ipcRenderer.invoke('get-audio-tracks-ffprobe', filePath)
+            .then(result => {
+                if (result.available && result.tracks.length > 0) {
+                    this._onFfprobeReady(result.tracks);
+                }
+            })
+            .catch(() => {});
 
         console.log('Loaded video:', fileName);
     }
@@ -990,6 +1194,7 @@ class VisionLumina {
         };
 
         this.video.playbackRate = speedMap[value] || 1;
+        if (this.externalAudio) this.externalAudio.playbackRate = this.video.playbackRate;
         this.updateActiveOption('speedSubmenu', value);
         console.log('Playback speed set to:', value);
         this.showMainSettings();
@@ -1055,7 +1260,7 @@ class VisionLumina {
             this.playerContainer.classList.remove('screen-fade-in');
             void this.playerContainer.offsetWidth; // reflow
             this.playerContainer.classList.add('screen-fade-in');
-            this.video.play().catch(e => console.warn('Autoplay blocked:', e));
+            this.play(); // через this.play() — гарантирует resume AudioContext
         }
         console.log('Video loaded successfully');
     }
@@ -1111,6 +1316,7 @@ class VisionLumina {
         const rect = this.progressContainer.getBoundingClientRect();
         const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         this.video.currentTime = percent * this.video.duration;
+        if (this.externalAudio) this.externalAudio.currentTime = this.video.currentTime;
         this.handleUserActivity();
     }
 
@@ -1125,18 +1331,27 @@ class VisionLumina {
         this.handleUserActivity();
     }
 
-    play() {
+    async play() {
         if (this.audioContext && this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+            try { await this.audioContext.resume(); } catch(e) {}
+        }
+        if (this.externalAudio) {
+            this.externalAudio.currentTime = this.video.currentTime;
+            this.externalAudio.play().catch(() => {});
         }
         this.video.play().catch(e => console.error('Play error:', e));
     }
 
     pause() {
+        if (this.externalAudio) this.externalAudio.pause();
         this.video.pause();
     }
 
     onPlay() {
+        // Страховка: разбудить AudioContext если ещё suspended
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
         this.isPlaying = true;
         this.playerContainer.classList.add('playing');
         this.showPlayIcon(false);
@@ -1157,6 +1372,7 @@ class VisionLumina {
     }
 
     onVideoEnded() {
+        if (this.externalAudio) this.externalAudio.pause();
         this.isPlaying = false;
         this.playerContainer.classList.remove('playing');
         this.showPlayIcon(true);
@@ -1202,6 +1418,10 @@ class VisionLumina {
 
     onVolumeChange() {
         this.isMuted = this.video.muted || this.video.volume === 0;
+        if (this.externalAudio) {
+            this.externalAudio.volume = this.isMuted ? 0 : this.video.volume;
+            this.externalAudio.muted = this.video.muted;
+        }
         this.updateVolumeUI();
     }
 
@@ -1267,14 +1487,227 @@ class VisionLumina {
     }
 
     returnToHome() {
+        if (this.isMiniMode) {
+            // Анимированный выход из мини с переходом на главную
+            this.exitMiniPlayer(true);
+            if (this.isPlaying) this.pause();
+            return;
+        }
         if (this.isPlaying) this.pause();
         this.playerContainer.style.display = 'none';
         if (this.homeScreen) {
             this.homeScreen.style.display = 'flex';
-            this.homeScreen.classList.remove('screen-fade-in');
-            void this.homeScreen.offsetWidth; // reflow to restart animation
-            this.homeScreen.classList.add('screen-fade-in');
+            // Анимация появления только при полном переходе из плеера
+            this.homeScreen.classList.remove('home-animate');
+            void this.homeScreen.offsetWidth;
+            this.homeScreen.classList.add('home-animate');
             if (this.library) this.library.render();
+        }
+    }
+
+    // ─── Mini Player ──────────────────────────────────────────────────────────
+
+    setupMiniPlayer() {
+        this.miniBtn = document.getElementById('miniBtn');
+        this.miniOverlay = document.getElementById('miniOverlay');
+        this.miniExpandBtn = document.getElementById('miniExpandBtn');
+        this.miniCloseBtn = document.getElementById('miniCloseBtn');
+        this.miniPlayPauseBtn = document.getElementById('miniPlayPauseBtn');
+        this.miniProgressPlayed = document.getElementById('miniProgressPlayed');
+        this.isMiniMode = false;
+        this._miniDrag = null;
+
+        if (this.miniBtn) {
+            this.miniBtn.addEventListener('click', () => this.enterMiniPlayer());
+        }
+        if (this.miniExpandBtn) {
+            this.miniExpandBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.exitMiniPlayer();
+            });
+        }
+        if (this.miniCloseBtn) {
+            this.miniCloseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (this.isPlaying) this.pause();
+                this.exitMiniPlayer(true); // goHome = true
+            });
+        }
+        if (this.miniPlayPauseBtn) {
+            this.miniPlayPauseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.togglePlayPause();
+            });
+        }
+
+        // Синхронизируем иконку play/pause мини-плеера с основным состоянием
+        this.video.addEventListener('play', () => this._syncMiniPlayIcon());
+        this.video.addEventListener('pause', () => this._syncMiniPlayIcon());
+
+        // Обновляем мини прогресс-бар
+        this.video.addEventListener('timeupdate', () => {
+            if (this.isMiniMode && this.miniProgressPlayed && this.video.duration) {
+                const pct = (this.video.currentTime / this.video.duration) * 100;
+                this.miniProgressPlayed.style.width = `${pct}%`;
+            }
+        });
+
+        // Перетаскивание мини-плеера (работает через left/top)
+        this.playerContainer.addEventListener('mousedown', (e) => {
+            if (!this.isMiniMode) return;
+            if (e.target.closest('.mini-action-btn, .mini-play-btn')) return;
+            e.preventDefault();
+            const rect = this.playerContainer.getBoundingClientRect();
+            // Переключаемся на left/top для drag
+            this.playerContainer.style.right  = 'auto';
+            this.playerContainer.style.bottom = 'auto';
+            this.playerContainer.style.left   = rect.left + 'px';
+            this.playerContainer.style.top    = rect.top  + 'px';
+            this._miniDrag = {
+                startX: e.clientX,
+                startY: e.clientY,
+                initLeft: rect.left,
+                initTop:  rect.top,
+            };
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!this._miniDrag) return;
+            let newLeft = this._miniDrag.initLeft + (e.clientX - this._miniDrag.startX);
+            let newTop  = this._miniDrag.initTop  + (e.clientY - this._miniDrag.startY);
+            newLeft = Math.max(8, Math.min(window.innerWidth  - 328, newLeft));
+            newTop  = Math.max(8, Math.min(window.innerHeight - 188, newTop));
+            this.playerContainer.style.left = newLeft + 'px';
+            this.playerContainer.style.top  = newTop  + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            this._miniDrag = null;
+        });
+    }
+
+    enterMiniPlayer() {
+        if (this.isMiniMode) return;
+        const c = this.playerContainer;
+        const rect = c.getBoundingClientRect();
+        const MINI_W = 320, MINI_H = 180, MARGIN = 24;
+        const EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
+        const DUR = '0.42s';
+
+        // 1. Фиксируем текущую позицию как inline styles (без визуальных изменений)
+        c.style.position = 'fixed';
+        c.style.left     = rect.left + 'px';
+        c.style.top      = rect.top  + 'px';
+        c.style.width    = rect.width  + 'px';
+        c.style.height   = rect.height + 'px';
+        c.style.right    = 'auto';
+        c.style.bottom   = 'auto';
+        c.style.margin   = '0';
+        c.style.borderRadius = '0px';
+        c.style.zIndex   = '1000';
+
+        // 2. Добавляем класс (включает overflow:hidden, скрытие controls и т.д.)
+        c.classList.add('mini-mode');
+
+        // 3. Показываем домашний экран за плеером
+        if (this.homeScreen) {
+            this.homeScreen.style.display = 'flex';
+        }
+
+        // 4. Reflow + запуск анимации
+        void c.offsetWidth;
+
+        const targetLeft = window.innerWidth  - MARGIN - MINI_W;
+        const targetTop  = window.innerHeight - MARGIN - MINI_H;
+
+        c.style.transition = `left ${DUR} ${EASING}, top ${DUR} ${EASING}, width ${DUR} ${EASING}, height ${DUR} ${EASING}, border-radius ${DUR} ease, box-shadow ${DUR} ease`;
+        c.style.left   = targetLeft + 'px';
+        c.style.top    = targetTop  + 'px';
+        c.style.width  = MINI_W + 'px';
+        c.style.height = MINI_H + 'px';
+        c.style.borderRadius = '14px';
+        c.style.boxShadow = '0 12px 48px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.1)';
+
+        // 5. После анимации — переключаемся на right/bottom-якорение
+        const onEnd = (e) => {
+            if (e.propertyName !== 'width') return;
+            c.removeEventListener('transitionend', onEnd);
+            c.style.transition = '';
+            c.style.left   = 'auto';
+            c.style.top    = 'auto';
+            c.style.right  = MARGIN + 'px';
+            c.style.bottom = MARGIN + 'px';
+            this.isMiniMode = true;
+            this._syncMiniPlayIcon();
+        };
+        c.addEventListener('transitionend', onEnd);
+    }
+
+    exitMiniPlayer(goHome = false) {
+        const c = this.playerContainer;
+        const rect = c.getBoundingClientRect();
+        const EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
+        const DUR = '0.38s';
+
+        this.isMiniMode = false;
+
+        // 1. Переходим от right/bottom к left/top (без визуального скачка)
+        c.style.transition = '';
+        c.style.right  = 'auto';
+        c.style.bottom = 'auto';
+        c.style.left   = rect.left + 'px';
+        c.style.top    = rect.top  + 'px';
+        c.style.width  = rect.width  + 'px';
+        c.style.height = rect.height + 'px';
+
+        c.classList.remove('mini-mode');
+
+        // 2. Reflow + анимация к полному экрану
+        void c.offsetWidth;
+
+        c.style.transition = `left ${DUR} ${EASING}, top ${DUR} ${EASING}, width ${DUR} ${EASING}, height ${DUR} ${EASING}, border-radius ${DUR} ease, box-shadow ${DUR} ease`;
+        c.style.left   = '0px';
+        c.style.top    = '0px';
+        c.style.width  = '100vw';
+        c.style.height = '100vh';
+        c.style.borderRadius = '0px';
+        c.style.boxShadow = 'none';
+
+        const onEnd = (e) => {
+            if (e.propertyName !== 'width') return;
+            c.removeEventListener('transitionend', onEnd);
+            // Очищаем все inline-стили анимации
+            c.style.transition = '';
+            c.style.position = '';
+            c.style.left = c.style.top = c.style.right = c.style.bottom = '';
+            c.style.width = c.style.height = '';
+            c.style.borderRadius = c.style.boxShadow = '';
+            c.style.margin = c.style.zIndex = '';
+
+            if (goHome) {
+                c.style.display = 'none';
+                // Без анимации — мини-плеер закрыли кнопкой X
+                if (this.homeScreen) {
+                    this.homeScreen.classList.remove('home-animate');
+                    if (this.library) this.library.render();
+                }
+            } else {
+                if (this.homeScreen) this.homeScreen.style.display = 'none';
+            }
+        };
+        c.addEventListener('transitionend', onEnd);
+    }
+
+    _syncMiniPlayIcon() {
+        if (!this.miniPlayPauseBtn) return;
+        const playIcon = this.miniPlayPauseBtn.querySelector('.play-icon');
+        const pauseIcon = this.miniPlayPauseBtn.querySelector('.pause-icon');
+        if (this.video.paused) {
+            playIcon && playIcon.classList.remove('hidden');
+            pauseIcon && pauseIcon.classList.add('hidden');
+        } else {
+            playIcon && playIcon.classList.add('hidden');
+            pauseIcon && pauseIcon.classList.remove('hidden');
         }
     }
 
@@ -1524,11 +1957,13 @@ class VisionLumina {
             case 'KeyJ':
                 e.preventDefault();
                 this.video.currentTime = Math.max(0, this.video.currentTime - 10);
+                if (this.externalAudio) this.externalAudio.currentTime = this.video.currentTime;
                 break;
             case 'ArrowRight':
             case 'KeyL':
                 e.preventDefault();
                 this.video.currentTime = Math.min(this.video.duration, this.video.currentTime + 10);
+                if (this.externalAudio) this.externalAudio.currentTime = this.video.currentTime;
                 break;
             case 'ArrowUp':
                 e.preventDefault();

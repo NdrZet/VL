@@ -166,6 +166,15 @@
                         <span class="hd-badge">HD</span>
                     </button>
 
+                    <!-- Mini Player -->
+                    <button id="miniBtn" class="control-btn" title="Mini player">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="15" rx="2"></rect>
+                            <rect x="12" y="11" width="8" height="5" rx="1" fill="currentColor" stroke="none"></rect>
+                            <line x1="2" y1="20" x2="22" y2="20"></line>
+                        </svg>
+                    </button>
+
                     <!-- Picture-in-Picture -->
                     <button id="pipBtn" class="control-btn">
                         <svg viewBox="0 0 24 24">
@@ -183,6 +192,42 @@
                             <line x1="3" y1="21" x2="10" y2="14"></line>
                         </svg>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini Player Overlay Controls -->
+        <div id="miniOverlay" class="mini-overlay">
+            <div class="mini-overlay-actions">
+                <button id="miniExpandBtn" class="mini-action-btn" title="Развернуть">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15,3 21,3 21,9"></polyline>
+                        <polyline points="9,21 3,21 3,15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+                <button id="miniCloseBtn" class="mini-action-btn mini-action-btn--close" title="Закрыть">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="mini-overlay-center">
+                <button id="miniPlayPauseBtn" class="mini-play-btn">
+                    <svg class="play-icon" viewBox="0 0 24 24">
+                        <polygon points="7,3 21,12 7,21" fill="currentColor" stroke="none"></polygon>
+                    </svg>
+                    <svg class="pause-icon hidden" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"></rect>
+                        <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"></rect>
+                    </svg>
+                </button>
+            </div>
+            <div class="mini-overlay-footer">
+                <div class="mini-progress">
+                    <div class="mini-progress-played" id="miniProgressPlayed"></div>
                 </div>
             </div>
         </div>

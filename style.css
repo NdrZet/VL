@@ -1920,23 +1920,13 @@ select.form-control {
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   background: rgba(10, 10, 15, 0.72);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  animation: homeLogoReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Logo animation */
-.home-logo {
-  animation: homeLogoReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-}
-
-/* Actions animation */
-.home-actions {
-  animation: homeActionsReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
-}
-
-/* Content area */
-.home-content {
-  animation: homeContentReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
-}
+/* Анимации только при классе .home-animate (добавляется только при полном переходе) */
+.home-animate .home-header  { animation: homeLogoReveal   0.5s  cubic-bezier(0.16, 1, 0.3, 1) both; }
+.home-animate .home-logo    { animation: homeLogoReveal   0.5s  cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.home-animate .home-actions { animation: homeActionsReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
+.home-animate .home-content { animation: homeContentReveal 0.5s  cubic-bezier(0.16, 1, 0.3, 1) 0.18s both; }
 
 /* Section titles — blue accent bar */
 .library-section-header {
@@ -1966,8 +1956,8 @@ select.form-control {
   flex-shrink: 0;
 }
 
-/* Card entrance stagger animation */
-.library-card {
+/* Card entrance stagger — только при .home-animate */
+.home-animate .library-card {
   animation: cardEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .library-card:hover {
@@ -2029,13 +2019,164 @@ select.form-control {
   margin-bottom: 0;
 }
 
-/* Custom scrollbar for home screen */
-.home-screen::-webkit-scrollbar { width: 6px; }
-.home-screen::-webkit-scrollbar-track { background: transparent; }
-.home-screen::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
+/* Скрываем скроллбар */
+.home-content { scrollbar-width: none; }
+.home-content::-webkit-scrollbar { display: none; }
+
+/* =====================================================
+   MINI PLAYER
+   ===================================================== */
+
+/* Мини-режим: только overflow, cursor, скрытие лишнего.
+   Позиция/размер управляются JS-анимацией через inline-style. */
+.player-container.mini-mode {
+  overflow: hidden;
+  cursor: grab;
+  display: block !important;
+  z-index: 1000;
 }
-.home-screen::-webkit-scrollbar-thumb:hover {
+.player-container.mini-mode:active { cursor: grabbing; }
+
+.player-container.mini-mode video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Скрываем лишние элементы в мини-режиме */
+.player-container.mini-mode .control-bar,
+.player-container.mini-mode .home-btn-overlay,
+.player-container.mini-mode #settingsMenu,
+.player-container.mini-mode #ambientCanvas,
+.player-container.mini-mode .sleep-notification {
+  display: none !important;
+}
+
+/* ── Оверлей ── */
+.mini-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(0,0,0,0.55) 0%,
+      transparent 38%,
+      transparent 58%,
+      rgba(0,0,0,0.65) 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.player-container.mini-mode .mini-overlay {
+  display: block;
+  pointer-events: auto;
+}
+.player-container.mini-mode:hover .mini-overlay {
+  opacity: 1;
+}
+
+/* ── Кнопки действий — абсолютно в правом верхнем углу ── */
+.mini-overlay-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Play/pause — по центру всего окна ── */
+.mini-overlay-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;   /* клики сквозь, кроме кнопки */
+}
+
+/* ── Прогресс — внизу ── */
+.mini-overlay-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding-bottom: 4px;
+}
+
+/* ── Кнопки действий (expand, close) ── */
+.mini-action-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+.mini-action-btn svg {
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+}
+.mini-action-btn:hover {
   background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.12);
+}
+.mini-action-btn--close:hover {
+  background: rgba(220, 38, 38, 0.75);
+}
+
+/* ── Кнопка play/pause ── */
+.mini-play-btn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.9);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.5);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1), box-shadow 0.15s ease;
+}
+.mini-play-btn:hover {
+  background: rgba(59, 130, 246, 1);
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.65);
+}
+.mini-play-btn {
+  pointer-events: auto;
+}
+.mini-play-btn svg {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+.mini-play-btn .play-icon  { transform: translateX(1px); } /* оптическое выравнивание треугольника */
+
+/* ── Прогресс-бар ── */
+.mini-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 8px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mini-progress-played {
+  height: 100%;
+  width: 0%;
+  background: #3B82F6;
+  border-radius: 2px;
+  transition: width 0.5s linear;
 }
