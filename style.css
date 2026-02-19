@@ -1870,6 +1870,38 @@ select.form-control {
 }
 
 /* =====================================================
+   AUDIO LOADING STATE (спиннер на кнопке play при загрузке AC3)
+   ===================================================== */
+
+.audio-loading-spinner {
+    display: none;
+    width: 22px;
+    height: 22px;
+    border: 2.5px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+}
+
+@keyframes audioSpin {
+    to { transform: rotate(360deg); }
+}
+
+#playPauseBtn.audio-loading .play-icon,
+#playPauseBtn.audio-loading .pause-icon {
+    display: none !important;
+}
+
+#playPauseBtn.audio-loading .audio-loading-spinner {
+    display: block;
+    animation: audioSpin 0.75s linear infinite;
+}
+
+#playPauseBtn.audio-loading {
+    opacity: 0.9;
+    cursor: wait;
+}
+
+/* =====================================================
    HOME SCREEN — ANIMATIONS & REDESIGN
    ===================================================== */
 

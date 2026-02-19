@@ -139,6 +139,7 @@ class VisionLumina {
         // Внешний аудио-элемент для AC3/DTS (транскодировано через ffmpeg)
         this.externalAudio = null;
         this._externalAudioPath = null;
+        this._audioReadyPromise = null;
 
         this.init();
     }
@@ -416,10 +417,6 @@ class VisionLumina {
             this.audioTrackValue.textContent = this.currentAudioTrack.label;
             this.buildAudioTrackMenu();
             console.log(`Native audio tracks: ${this.availableAudioTracks.length}, active: ${nativeDefault}`);
-            // Если кодек уже известен и не поддерживается — запускаем extraction сразу
-            if (this.currentAudioTrack.codec && !this._isCodecSupported(this.currentAudioTrack.codec)) {
-                this._tryFfmpegAudio(nativeDefault);
-            }
             return;
         } else if (this._ffprobeTracks && this._ffprobeTracks.length > 0) {
             // ffprobe уже вернул данные — применяем сразу
@@ -452,11 +449,6 @@ class VisionLumina {
             for (let i = 0; i < this.availableAudioTracks.length && i < probedTracks.length; i++) {
                 this.availableAudioTracks[i].codec = probedTracks[i].codec;
             }
-            const cur = this.currentAudioTrack;
-            if (cur && cur.codec && !this._isCodecSupported(cur.codec)) {
-                console.log(`Native track ${cur.index} codec ${cur.codec} not supported, extracting...`);
-                this._tryFfmpegAudio(cur.index);
-            }
         }
     }
 
@@ -476,9 +468,12 @@ class VisionLumina {
 
     _isCodecSupported(codec) {
         if (!codec) return true; // неизвестный — считаем поддерживаемым
-        const c = codec.toUpperCase();
-        // Кодеки, которые Chromium не декодирует без внешних компонентов
-        return !['A_AC3', 'A_DTS', 'A_TRUEHD', 'A_EAC3', 'A_MLP'].some(u => c.startsWith(u));
+        // Нормализуем оба формата именования:
+        //   MKV-парсер → A_AC3, A_DTS, A_TRUEHD ...
+        //   ffprobe     → ac3,   dts,   truehd  ...
+        const c = codec.toUpperCase().replace(/^A_/, '');
+        const unsupported = ['AC3', 'DTS', 'TRUEHD', 'EAC3', 'MLP'];
+        return !unsupported.some(u => c === u || c.startsWith(u + '_'));
     }
 
     _getBestTrackIndex() {
@@ -504,12 +499,6 @@ class VisionLumina {
         this.audioTrackValue.textContent = this.currentAudioTrack.label;
         this.buildAudioTrackMenu();
         console.log(`Audio tracks committed: ${this.availableAudioTracks.length}, best: ${bestIdx} (${this.currentAudioTrack.label})`);
-
-        // Если кодек не поддерживается Chromium (AC3/DTS/TrueHD) — транскодируем через ffmpeg
-        if (this.currentAudioTrack.codec && !this._isCodecSupported(this.currentAudioTrack.codec)) {
-            console.log(`Codec ${this.currentAudioTrack.codec} not supported. Extracting via ffmpeg...`);
-            this._tryFfmpegAudio(bestIdx);
-        }
     }
 
     // Транскодируем аудиодорожку через ffmpeg и воспроизводим параллельно с видео
@@ -517,31 +506,29 @@ class VisionLumina {
         if (!this.currentVideoPath) return;
         const extractingForPath = this.currentVideoPath;
 
-        this.showSleepNotification('Extracting AC3 audio via ffmpeg...', 120000);
+        this._setAudioLoading(true);
         try {
             const result = await ipcRenderer.invoke('extract-audio-track', {
                 filePath: extractingForPath,
                 trackIndex
             });
-            // Пока ждали — пользователь мог открыть другой файл
             if (this.currentVideoPath !== extractingForPath) return;
 
             if (!result.success) {
                 this.showSleepNotification('AC3 audio: install ffmpeg for support', 5000);
                 return;
             }
-            // Удаляем предыдущий temp-файл
             if (this._externalAudioPath) {
                 ipcRenderer.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
             }
             this._externalAudioPath = result.tempPath;
-            const fileUrl = 'file:///' + result.tempPath.replace(/\\/g, '/');
-            this._setupExternalAudio(fileUrl);
-            if (this.sleepNotification) this.sleepNotification.classList.remove('show');
-            console.log('AC3 audio ready:', result.tempPath);
+            this._setupExternalAudio('file:///' + result.tempPath.replace(/\\/g, '/'));
+            console.log('AC3 audio ready');
         } catch (e) {
             console.error('Audio extraction error:', e);
             this.showSleepNotification('AC3 audio extraction failed', 4000);
+        } finally {
+            this._setAudioLoading(false);
         }
     }
 
@@ -564,6 +551,45 @@ class VisionLumina {
             this.externalAudio.src = '';
             this.externalAudio = null;
         }
+    }
+
+    // Состояние загрузки аудио: спиннер на кнопке play + уведомление
+    _setAudioLoading(loading) {
+        if (loading) {
+            this.playPauseBtn.classList.add('audio-loading');
+            this.showSleepNotification('Loading audio (AC3)...', 120000);
+        } else {
+            this.playPauseBtn.classList.remove('audio-loading');
+            if (this.sleepNotification) this.sleepNotification.classList.remove('show');
+        }
+    }
+
+    // Подготовка аудио: ffprobe → определение кодека → транскодирование если нужно
+    async _prepareAudio(filePath) {
+        try {
+            const result = await ipcRenderer.invoke('get-audio-tracks-ffprobe', filePath);
+            if (this.currentVideoPath !== filePath) return;
+            if (!result.available || result.tracks.length === 0) return;
+
+            this._onFfprobeReady(result.tracks);
+
+            // Работаем с сырыми данными ffprobe напрямую — НЕ через this.currentAudioTrack,
+            // т.к. loadedmetadata может ещё не сработать в этот момент.
+            const bestTrack = result.tracks.find(t => this._isCodecSupported(t.codec))
+                || result.tracks[0];
+
+            if (bestTrack && bestTrack.codec && !this._isCodecSupported(bestTrack.codec)) {
+                await this._tryFfmpegAudio(bestTrack.index);
+            }
+        } catch {}
+    }
+
+    // Ждём готовности аудио, затем воспроизводим
+    async _playWhenReady() {
+        if (this._audioReadyPromise) {
+            try { await this._audioReadyPromise; } catch {}
+        }
+        this.play();
     }
 
     buildAudioTrackMenu() {
@@ -600,9 +626,8 @@ class VisionLumina {
         this.updateActiveOption('audioSubmenu', this.settings.audioTrack);
     }
 
-    selectAudioTrack(track) {
+    async selectAudioTrack(track) {
         const wasPlaying = this.isPlaying;
-        const currentTime = this.video.currentTime;
 
         // 1. Пробуем native API (работает если Chromium экспонировал треки)
         if (this.video.audioTracks && this.video.audioTracks.length > 1 && !track.ffprobeTrack) {
@@ -610,9 +635,13 @@ class VisionLumina {
                 this.video.audioTracks[i].enabled = (i === track.index);
             }
         }
-        // 2. Несовместимый кодек (AC3/DTS) или ffprobe-трек → транскодируем через ffmpeg
-        else if (track.ffprobeTrack || (track.codec && !this._isCodecSupported(track.codec))) {
-            this._tryFfmpegAudio(track.index);
+        // 2. Несовместимый кодек (AC3/DTS) → пауза, транскодировка, возобновление
+        // Проверяем только кодек — track.ffprobeTrack не означает несовместимость (AAC тоже ffprobe-трек)
+        else if (track.codec && !this._isCodecSupported(track.codec)) {
+            if (wasPlaying) this.pause();
+            this._audioReadyPromise = this._tryFfmpegAudio(track.index);
+            await this._audioReadyPromise;
+            if (wasPlaying && this.currentVideoPath) this.play();
         }
 
         this.currentAudioTrack = track;
@@ -894,6 +923,10 @@ class VisionLumina {
         // во время await и увидеть старые данные предыдущего файла
         this._ffprobeTracks = [];
 
+        // ВАЖНО: устанавливаем Promise ДО video.load(), иначе loadedmetadata
+        // может сработать раньше и _playWhenReady() не будет ждать извлечения аудио
+        this._audioReadyPromise = this._prepareAudio(filePath);
+
         this.video.src = fileUrl;
 
         const fileName = filePath.split(/[\\/]/).pop();
@@ -906,15 +939,6 @@ class VisionLumina {
 
         // Reset subtitles when switching video
         this.clearSubtitles();
-
-        // Пробуем ffprobe/mkv-parser параллельно
-        ipcRenderer.invoke('get-audio-tracks-ffprobe', filePath)
-            .then(result => {
-                if (result.available && result.tracks.length > 0) {
-                    this._onFfprobeReady(result.tracks);
-                }
-            })
-            .catch(() => {});
 
         console.log('Loaded video:', fileName);
     }
@@ -1260,7 +1284,7 @@ class VisionLumina {
             this.playerContainer.classList.remove('screen-fade-in');
             void this.playerContainer.offsetWidth; // reflow
             this.playerContainer.classList.add('screen-fade-in');
-            this.play(); // через this.play() — гарантирует resume AudioContext
+            this._playWhenReady(); // ждём готовности аудио (для AC3 — после транскодировки)
         }
         console.log('Video loaded successfully');
     }
