@@ -1868,3 +1868,174 @@ select.form-control {
   box-shadow: var(--shadow-sm);
   display: block;
 }
+
+/* =====================================================
+   HOME SCREEN — ANIMATIONS & REDESIGN
+   ===================================================== */
+
+/* Keyframes */
+@keyframes homeLogoReveal {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes homeActionsReveal {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes homeContentReveal {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes screenFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Screen transitions */
+.screen-fade-in {
+  animation: screenFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Home screen background — subtle radial glow */
+.home-screen {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 70%),
+    var(--color-bg, #0a0a0f);
+}
+
+/* Sticky glassmorphic header */
+.home-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: rgba(10, 10, 15, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  animation: homeLogoReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Logo animation */
+.home-logo {
+  animation: homeLogoReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+/* Actions animation */
+.home-actions {
+  animation: homeActionsReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+
+/* Content area */
+.home-content {
+  animation: homeContentReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+/* Section titles — blue accent bar */
+.library-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 6px 0;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.library-section-header::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #2563EB;
+  flex-shrink: 0;
+}
+
+/* Section file count */
+.library-section-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: var(--font-family-mono, monospace);
+  flex-shrink: 0;
+}
+
+/* Card entrance stagger animation */
+.library-card {
+  animation: cardEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.library-card:hover {
+  transform: translateY(-3px) scale(1.025);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.22), 0 2px 8px rgba(0,0,0,0.45);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Card play icon overlay */
+.card-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.22s ease;
+  border-radius: inherit;
+}
+.library-card:hover .card-play-overlay {
+  background: rgba(0, 0, 0, 0.38);
+}
+.card-play-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.55);
+}
+.card-play-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: #fff;
+  margin-left: 3px;
+}
+.library-card:hover .card-play-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Empty state — floating icon */
+.library-empty-icon {
+  animation: emptyFloat 3.2s ease-in-out infinite;
+  display: inline-block;
+  margin-bottom: 16px;
+  opacity: 0.55;
+}
+.library-empty-icon svg {
+  width: 56px;
+  height: 56px;
+  opacity: 1;
+  margin-bottom: 0;
+}
+
+/* Custom scrollbar for home screen */
+.home-screen::-webkit-scrollbar { width: 6px; }
+.home-screen::-webkit-scrollbar-track { background: transparent; }
+.home-screen::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+.home-screen::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}

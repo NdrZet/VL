@@ -1052,6 +1052,9 @@ class VisionLumina {
         if (this.currentVideoPath) {
             if (this.homeScreen) this.homeScreen.style.display = 'none';
             this.playerContainer.style.display = 'block';
+            this.playerContainer.classList.remove('screen-fade-in');
+            void this.playerContainer.offsetWidth; // reflow
+            this.playerContainer.classList.add('screen-fade-in');
         }
         console.log('Video loaded successfully');
     }
@@ -1267,6 +1270,9 @@ class VisionLumina {
         this.playerContainer.style.display = 'none';
         if (this.homeScreen) {
             this.homeScreen.style.display = 'flex';
+            this.homeScreen.classList.remove('screen-fade-in');
+            void this.homeScreen.offsetWidth; // reflow to restart animation
+            this.homeScreen.classList.add('screen-fade-in');
             if (this.library) this.library.render();
         }
     }
@@ -1723,25 +1729,33 @@ class HomeLibrary {
         removeBtn.textContent = 'Remove';
         removeBtn.addEventListener('click', () => this.removeDir(dir));
 
+        const countEl = document.createElement('span');
+        countEl.className = 'library-section-count';
+        countEl.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+
         header.appendChild(title);
+        header.appendChild(countEl);
         header.appendChild(removeBtn);
 
         const grid = document.createElement('div');
         grid.className = 'library-grid';
 
-        for (const filePath of files) {
-            grid.appendChild(this.buildCard(filePath, path));
-        }
+        files.forEach((filePath, i) => {
+            grid.appendChild(this.buildCard(filePath, path, i));
+        });
 
         section.appendChild(header);
         section.appendChild(grid);
         return section;
     }
 
-    buildCard(filePath, path) {
+    buildCard(filePath, path, cardIndex = 0) {
         const card = document.createElement('div');
         card.className = 'library-card';
         card.title = filePath;
+        // Stagger entrance animation
+        const delay = Math.min(cardIndex * 40, 600);
+        card.style.animationDelay = `${delay}ms`;
 
         const thumbDiv = document.createElement('div');
         thumbDiv.className = 'library-card-thumb';
@@ -1759,6 +1773,12 @@ class HomeLibrary {
             </svg>`;
             this.thumbnailQueue.push({ filePath, thumbDiv, card });
         }
+
+        // Play icon overlay (shown on hover via CSS)
+        const playOverlay = document.createElement('div');
+        playOverlay.className = 'card-play-overlay';
+        playOverlay.innerHTML = `<div class="card-play-icon"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`;
+        thumbDiv.appendChild(playOverlay);
 
         const info = document.createElement('div');
         info.className = 'library-card-info';
