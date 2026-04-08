@@ -307,7 +307,7 @@ class VisionLumina {
         this.buildQualityMenu();
 
         this.settings.quality = detectedQuality;
-        this.qualityValue.textContent = detectedQuality;
+        this.qualityValue.textContent = this._tv(detectedQuality);
 
         console.log(`Video quality detected: ${detectedQuality} (${width}x${height})`);
     }
@@ -370,7 +370,7 @@ class VisionLumina {
 
     selectQuality(value) {
         this.settings.quality = value;
-        this.qualityValue.textContent = value;
+        this.qualityValue.textContent = this._tv(value);
         this.updateActiveOption('qualitySubmenu', value);
         console.log('Quality set to:', value);
         this.showMainSettings();
@@ -414,7 +414,7 @@ class VisionLumina {
             }
             this.currentAudioTrack = this.availableAudioTracks[nativeDefault];
             this.settings.audioTrack = this.currentAudioTrack.label;
-            this.audioTrackValue.textContent = this.currentAudioTrack.label;
+            this.audioTrackValue.textContent = this._tv(this.currentAudioTrack.label);
             this.buildAudioTrackMenu();
             console.log(`Native audio tracks: ${this.availableAudioTracks.length}, active: ${nativeDefault}`);
             return;
@@ -646,7 +646,7 @@ class VisionLumina {
 
         this.currentAudioTrack = track;
         this.settings.audioTrack = track.label;
-        this.audioTrackValue.textContent = track.label;
+        this.audioTrackValue.textContent = this._tv(track.label);
         this.updateActiveOption('audioSubmenu', track.label);
         console.log('Audio track selected:', track.label);
         this.showMainSettings();
@@ -736,7 +736,7 @@ class VisionLumina {
         this.ccBtn.style.opacity = this.subtitlesActive ? '1' : '0.6';
         this.ccBtn.title = this.subtitlesActive ? 'Subtitles: On' : 'Subtitles: Off';
         if (this.subtitlesValue) {
-            this.subtitlesValue.textContent = this.subtitlesActive ? 'On' : 'Off';
+            this.subtitlesValue.textContent = this._tv(this.subtitlesActive ? 'On' : 'Off');
         }
     }
 
@@ -1071,9 +1071,34 @@ class VisionLumina {
         this.playbackSpeedValue.textContent = this.settings.playbackSpeed;
         this.qualityValue.textContent = this.settings.quality;
         this.audioTrackValue.textContent = this.settings.audioTrack;
-        // Default volume: 50%
-        this.video.volume = 0.5;
+        // Default volume from app settings (falls back to 50%)
+        const appSettings = this._loadAppSettingsPlayer();
+        const vol = appSettings.defaultVolume !== undefined ? appSettings.defaultVolume / 100 : 0.5;
+        this.video.volume = Math.min(1.5, Math.max(0, vol));
+        this.currentVolume = this.video.volume;
         this.updateVolumeUI();
+    }
+
+    _loadAppSettingsPlayer() {
+        try { return JSON.parse(localStorage.getItem('vl-app-settings') || '{}'); }
+        catch { return {}; }
+    }
+
+    // Translates internal player setting values to the current UI language
+    _tv(value) {
+        if (!window.VLi18n) return value;
+        const map = {
+            'Off':        'player.value_off',
+            'On':         'player.value_on',
+            'Normal':     'player.value_normal',
+            'Default':    'player.value_default',
+            'Auto':       'player.value_auto',
+            '10 minutes': 'player.sleep_10',
+            '15 minutes': 'player.sleep_15',
+            '30 minutes': 'player.sleep_30',
+            '60 minutes': 'player.sleep_60',
+        };
+        return map[value] ? window.VLi18n.t(map[value]) : value;
     }
 
     handleSettingsClick(e) {
@@ -1284,6 +1309,19 @@ class VisionLumina {
             this.playerContainer.classList.remove('screen-fade-in');
             void this.playerContainer.offsetWidth; // reflow
             this.playerContainer.classList.add('screen-fade-in');
+
+            // Resume from last position if setting is enabled
+            try {
+                const appSettings = this._loadAppSettingsPlayer();
+                if (appSettings.resumePlayback) {
+                    const pos = JSON.parse(localStorage.getItem('vl-resume-pos') || '{}');
+                    const savedTime = pos[this.currentVideoPath];
+                    if (savedTime && savedTime > 3 && savedTime < this.video.duration - 10) {
+                        this.video.currentTime = savedTime;
+                    }
+                }
+            } catch {}
+
             this._playWhenReady(); // ждём готовности аудио (для AC3 — после транскодировки)
         }
         console.log('Video loaded successfully');
@@ -1299,6 +1337,25 @@ class VisionLumina {
 
         if (this.chapters.length > 0) {
             this.updateCurrentChapter();
+        }
+
+        // Save position for resume (every ~5 s to avoid thrashing localStorage)
+        if (this.currentVideoPath && this.video.currentTime > 3) {
+            const now = Date.now();
+            if (!this._lastPositionSave || now - this._lastPositionSave > 5000) {
+                this._lastPositionSave = now;
+                try {
+                    const pos = JSON.parse(localStorage.getItem('vl-resume-pos') || '{}');
+                    // Store position only if not near the end (last 10 s)
+                    const remaining = this.video.duration - this.video.currentTime;
+                    if (remaining > 10) {
+                        pos[this.currentVideoPath] = Math.floor(this.video.currentTime);
+                    } else {
+                        delete pos[this.currentVideoPath];
+                    }
+                    localStorage.setItem('vl-resume-pos', JSON.stringify(pos));
+                } catch {}
+            }
         }
     }
 
@@ -1404,7 +1461,8 @@ class VisionLumina {
         this.clearHideTimer();
 
         // Auto-advance to next file in playlist
-        if (this.playlist.length > 1 && this.currentIndex >= 0) {
+        const appSettings = this._loadAppSettingsPlayer();
+        if (appSettings.autoPlayNext !== false && this.playlist.length > 1 && this.currentIndex >= 0) {
             const nextIndex = this.currentIndex + 1;
             if (nextIndex < this.playlist.length) {
                 this.loadVideoFile(this.playlist[nextIndex]).then(() => {
@@ -2063,9 +2121,17 @@ class HomeLibrary {
         this.emptyEl       = document.getElementById('libraryEmpty');
         this.addFolderBtn  = document.getElementById('addFolderBtn');
         this.openFileBtn   = document.getElementById('openFileBtn');
+        this.searchInput   = document.getElementById('homeSearchInput');
+        this.currentView   = 'library';
 
         this.bindEvents();
         this.render();
+
+        // Restore sidebar collapsed state
+        if (localStorage.getItem('vl-sidebar-collapsed') === '1') {
+            const sidebar = document.getElementById('homeSidebar');
+            if (sidebar) sidebar.classList.add('is-collapsed');
+        }
     }
 
     // ── Storage ───────────────────────────────────────────────────────────────
@@ -2103,6 +2169,367 @@ class HomeLibrary {
         if (this.openFileBtn) {
             this.openFileBtn.addEventListener('click', () => this.promptOpenFile());
         }
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', () => this.filterCards(this.searchInput.value));
+        }
+        document.querySelectorAll('.sidebar-item[data-view]').forEach(btn => {
+            btn.addEventListener('click', () => this.switchView(btn.dataset.view));
+        });
+        const toggleBtn = document.getElementById('sidebarToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggleSidebar());
+        }
+        this.updateDiskUsage();
+    }
+
+    // ── Sidebar navigation ────────────────────────────────────────────────────
+
+    switchView(view) {
+        this.currentView = view;
+        document.querySelectorAll('.sidebar-item[data-view]').forEach(btn => {
+            btn.classList.toggle('is-active', btn.dataset.view === view);
+        });
+        ['library', 'recent', 'folders', 'favorites', 'playlists', 'statistics', 'settings'].forEach(v => {
+            const el = document.getElementById(`view${v.charAt(0).toUpperCase() + v.slice(1)}`);
+            if (el) el.classList.toggle('hidden', v !== view);
+        });
+        if (view === 'recent')     this.renderRecentView();
+        if (view === 'folders')    this.renderFoldersView();
+        if (view === 'statistics') this.renderStatistics();
+        if (view === 'settings')   this.renderSettingsPage();
+    }
+
+    toggleSidebar() {
+        const sidebar = document.getElementById('homeSidebar');
+        if (!sidebar) return;
+        sidebar.classList.toggle('is-collapsed');
+        localStorage.setItem('vl-sidebar-collapsed', sidebar.classList.contains('is-collapsed') ? '1' : '0');
+    }
+
+    updateDiskUsage() {
+        const el = document.getElementById('diskUsageText');
+        if (!el || this.dirs.length === 0) return;
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
+            let total = 0;
+            for (const dir of this.dirs) {
+                const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
+                for (const fp of files) {
+                    try { total += fs.statSync(fp).size; } catch {}
+                }
+            }
+            const gb = total / (1024 ** 3);
+            el.textContent = gb >= 1 ? `${gb.toFixed(1)} GB` : `${(total / (1024 ** 2)).toFixed(0)} MB`;
+        } catch {}
+    }
+
+    filterCards(query) {
+        const q = query.trim().toLowerCase();
+        const cards = this.sectionsEl.querySelectorAll('.library-card');
+        cards.forEach(card => {
+            const nameEl = card.querySelector('.library-card-name');
+            const match = !q || (nameEl && nameEl.textContent.toLowerCase().includes(q));
+            card.style.display = match ? '' : 'none';
+        });
+        const sections = this.sectionsEl.querySelectorAll('.library-section');
+        sections.forEach(section => {
+            const anyVisible = [...section.querySelectorAll('.library-card')].some(c => c.style.display !== 'none');
+            section.style.display = anyVisible ? '' : 'none';
+        });
+    }
+
+    // ── Track last opened ─────────────────────────────────────────────────────
+
+    trackOpened(filePath) {
+        if (!this.cache[filePath]) this.cache[filePath] = {};
+        this.cache[filePath].lastOpened = Date.now();
+        this.cache[filePath].openCount = (this.cache[filePath].openCount || 0) + 1;
+        this.saveCache();
+    }
+
+    // ── Recent view ───────────────────────────────────────────────────────────
+
+    renderRecentView() {
+        const grid  = document.getElementById('recentGrid');
+        const empty = document.getElementById('recentEmpty');
+        if (!grid) return;
+
+        const recent = Object.entries(this.cache)
+            .filter(([, d]) => d.lastOpened)
+            .sort(([, a], [, b]) => b.lastOpened - a.lastOpened)
+            .slice(0, 24)
+            .map(([fp]) => fp);
+
+        grid.innerHTML = '';
+
+        if (recent.length === 0) {
+            if (empty) empty.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            if (empty) empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            const path = require('path');
+            recent.forEach((fp, i) => grid.appendChild(this.buildCard(fp, path, i)));
+        }
+    }
+
+    // ── Folders view ──────────────────────────────────────────────────────────
+
+    renderFoldersView() {
+        const grid  = document.getElementById('foldersGrid');
+        const empty = document.getElementById('foldersEmpty');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        if (this.dirs.length === 0) {
+            if (empty) empty.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            if (empty) empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            const fs   = require('fs');
+            const path = require('path');
+            const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
+            this.dirs.forEach(dir => {
+                const count = this.getVideoFilesRecursive(dir, fs, path, videoExt).length;
+                grid.appendChild(this.buildFolderCard(dir, count, path));
+            });
+        }
+    }
+
+    buildFolderCard(dir, fileCount, path) {
+        const card = document.createElement('div');
+        card.className = 'folder-card';
+        card.innerHTML = `
+            <div class="folder-card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </div>
+            <div class="folder-card-body">
+                <div class="folder-card-name">${path.basename(dir) || dir}</div>
+                <div class="folder-card-path">${dir}</div>
+            </div>
+            <div class="folder-card-footer">
+                <span class="folder-card-count">${window.VLi18n.t('dynamic.videos', { n: fileCount })}</span>
+                <button class="folder-card-remove">${window.VLi18n.t('dynamic.remove')}</button>
+            </div>`;
+        card.querySelector('.folder-card-remove').addEventListener('click', () => this.removeDir(dir));
+        return card;
+    }
+
+    // ── Statistics view ───────────────────────────────────────────────────────
+
+    renderStatistics() {
+        const fs       = require('fs');
+        const path     = require('path');
+        const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
+        const now      = Date.now();
+        const day30    = 30 * 24 * 60 * 60 * 1000;
+
+        // ── Aggregate data ─────────────────────────────────────────────────
+        let totalVideos = 0;
+        let totalSize   = 0;
+        const folderStats = [];
+
+        for (const dir of this.dirs) {
+            const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
+            let folderSize = 0;
+            for (const fp of files) {
+                try { folderSize += fs.statSync(fp).size; } catch {}
+            }
+            totalVideos += files.length;
+            totalSize   += folderSize;
+            folderStats.push({ dir, count: files.length, size: folderSize });
+        }
+
+        const recentCount = Object.values(this.cache)
+            .filter(d => d.lastOpened && (now - d.lastOpened) < day30).length;
+
+        // ── Stat cards ─────────────────────────────────────────────────────
+        const fmtSize = bytes => {
+            const gb = bytes / (1024 ** 3);
+            return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 ** 2)).toFixed(0)} MB`;
+        };
+
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setVal('statTotalVideos', totalVideos || '0');
+        setVal('statLibrarySize', totalSize > 0 ? fmtSize(totalSize) : '—');
+        setVal('statRecentCount', recentCount || '0');
+        setVal('statFolderCount', this.dirs.length || '0');
+
+        // ── Folder bars ────────────────────────────────────────────────────
+        const barsEl = document.getElementById('statsFolderBars');
+        const barsSection = document.getElementById('statsFoldersSection');
+        if (barsEl) {
+            barsEl.innerHTML = '';
+            if (folderStats.length === 0) {
+                if (barsSection) barsSection.style.display = 'none';
+            } else {
+                if (barsSection) barsSection.style.display = '';
+                const maxCount = Math.max(...folderStats.map(f => f.count), 1);
+                folderStats.forEach(({ dir, count }) => {
+                    const pct = Math.round((count / maxCount) * 100);
+                    const row = document.createElement('div');
+                    row.className = 'stats-bar-row';
+                    row.innerHTML = `
+                        <div class="stats-bar-label" title="${dir}">${path.basename(dir) || dir}</div>
+                        <div class="stats-bar-track">
+                            <div class="stats-bar-fill" style="width:0%"></div>
+                        </div>
+                        <div class="stats-bar-count">${count}</div>`;
+                    barsEl.appendChild(row);
+                    // Animate bar width after paint
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            row.querySelector('.stats-bar-fill').style.width = `${pct}%`;
+                        });
+                    });
+                });
+            }
+        }
+
+        // ── Recently watched grid ──────────────────────────────────────────
+        const recentGrid  = document.getElementById('statsRecentGrid');
+        const recentEmpty = document.getElementById('statsRecentEmpty');
+        if (!recentGrid) return;
+
+        const recent = Object.entries(this.cache)
+            .filter(([, d]) => d.lastOpened)
+            .sort(([, a], [, b]) => b.lastOpened - a.lastOpened)
+            .slice(0, 16)
+            .map(([fp]) => fp);
+
+        recentGrid.innerHTML = '';
+        if (recent.length === 0) {
+            if (recentEmpty) recentEmpty.classList.remove('hidden');
+            recentGrid.classList.add('hidden');
+        } else {
+            if (recentEmpty) recentEmpty.classList.add('hidden');
+            recentGrid.classList.remove('hidden');
+            recent.forEach((fp, i) => recentGrid.appendChild(this.buildCard(fp, path, i)));
+        }
+    }
+
+    // ── Settings view ─────────────────────────────────────────────────────────
+
+    loadAppSettings() {
+        try { return JSON.parse(localStorage.getItem('vl-app-settings') || '{}'); }
+        catch { return {}; }
+    }
+
+    saveAppSettings(patch) {
+        const s = this.loadAppSettings();
+        Object.assign(s, patch);
+        localStorage.setItem('vl-app-settings', JSON.stringify(s));
+        return s;
+    }
+
+    renderSettingsPage() {
+        const s = this.loadAppSettings();
+
+        // Default volume slider
+        const volSlider = document.getElementById('settingDefaultVolume');
+        const volVal    = document.getElementById('settingDefaultVolumeVal');
+        if (volSlider) {
+            volSlider.value = s.defaultVolume !== undefined ? s.defaultVolume : 50;
+            if (volVal) volVal.textContent = `${volSlider.value}%`;
+            volSlider.oninput = () => {
+                if (volVal) volVal.textContent = `${volSlider.value}%`;
+                this.saveAppSettings({ defaultVolume: Number(volSlider.value) });
+            };
+        }
+
+        // Ambient intensity slider
+        const ambSlider = document.getElementById('settingAmbientIntensity');
+        const ambVal    = document.getElementById('settingAmbientIntensityVal');
+        if (ambSlider) {
+            ambSlider.value = s.ambientIntensity !== undefined ? s.ambientIntensity : 50;
+            if (ambVal) ambVal.textContent = `${ambSlider.value}%`;
+            ambSlider.oninput = () => {
+                if (ambVal) ambVal.textContent = `${ambSlider.value}%`;
+                this.saveAppSettings({ ambientIntensity: Number(ambSlider.value) });
+            };
+        }
+
+        // Toggles
+        const bindToggle = (id, key, def = false) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.checked = s[key] !== undefined ? s[key] : def;
+            el.onchange = () => this.saveAppSettings({ [key]: el.checked });
+        };
+        bindToggle('settingResume',     'resumePlayback',    false);
+        bindToggle('settingAutoNext',   'autoPlayNext',      true);
+        bindToggle('settingHwAccel',    'hwAccel',           true);
+        bindToggle('settingThumbnails', 'generateThumbnails', true);
+
+        // Cache info
+        this._refreshSettingsCacheInfo();
+
+        // Clear cache button
+        const clearCacheBtn = document.getElementById('settingClearCache');
+        if (clearCacheBtn) {
+            clearCacheBtn.onclick = () => {
+                // Strip thumbDataUrl from all cache entries
+                for (const key of Object.keys(this.cache)) {
+                    delete this.cache[key].thumbDataUrl;
+                }
+                this.saveCache();
+                this._refreshSettingsCacheInfo();
+            };
+        }
+
+        // Clear history button
+        const clearHistBtn = document.getElementById('settingClearHistory');
+        if (clearHistBtn) {
+            clearHistBtn.onclick = () => {
+                for (const key of Object.keys(this.cache)) {
+                    delete this.cache[key].lastOpened;
+                    delete this.cache[key].openCount;
+                }
+                this.saveCache();
+                localStorage.removeItem('vl-resume-pos');
+                this._refreshSettingsCacheInfo();
+            };
+        }
+
+        // Language buttons
+        const currentLang = window.VLi18n ? window.VLi18n.lang : 'en';
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.classList.toggle('is-active', btn.dataset.lang === currentLang);
+            btn.onclick = () => {
+                const lang = btn.dataset.lang;
+                this.saveAppSettings({ language: lang });
+                if (window.VLi18n) {
+                    window.VLi18n.applyLang(lang);
+                    // Update html lang attribute
+                    document.documentElement.lang = lang;
+                    // Re-mark active button
+                    document.querySelectorAll('.lang-btn').forEach(b =>
+                        b.classList.toggle('is-active', b.dataset.lang === lang));
+                    // Re-render dynamic content that uses t()
+                    this.render();
+                    this._refreshSettingsCacheInfo();
+                }
+            };
+        });
+    }
+
+    _refreshSettingsCacheInfo() {
+        const thumbCount = Object.values(this.cache).filter(d => d.thumbDataUrl).length;
+        const histCount  = Object.values(this.cache).filter(d => d.lastOpened).length;
+        const cacheDesc  = document.getElementById('settingCacheDesc');
+        const histDesc   = document.getElementById('settingHistoryDesc');
+        if (cacheDesc) cacheDesc.textContent = thumbCount > 0
+            ? window.VLi18n.t('dynamic.thumbnails_stored', { n: thumbCount })
+            : window.VLi18n.t('dynamic.no_thumbnails');
+        if (histDesc) histDesc.textContent = histCount > 0
+            ? window.VLi18n.t('dynamic.history_items', { n: histCount })
+            : window.VLi18n.t('dynamic.history_empty');
     }
 
     async promptAddFolder() {
@@ -2115,6 +2542,7 @@ class HomeLibrary {
                     this.dirs.push(dir);
                     this.saveDirs();
                     this.render();
+                    if (this.currentView === 'folders') this.renderFoldersView();
                 }
             }
         } catch (e) {
@@ -2146,9 +2574,10 @@ class HomeLibrary {
     render() {
         if (!this.sectionsEl || !this.emptyEl) return;
 
-        // Reset thumbnail queue for fresh render
+        // Reset thumbnail queue and search for fresh render
         this.thumbnailQueue = [];
         this.activeThumbnailJobs = 0;
+        if (this.searchInput) this.searchInput.value = '';
 
         if (this.dirs.length === 0) {
             this.emptyEl.classList.remove('hidden');
@@ -2186,12 +2615,12 @@ class HomeLibrary {
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'library-section-remove';
-        removeBtn.textContent = 'Remove';
+        removeBtn.textContent = window.VLi18n.t('dynamic.remove');
         removeBtn.addEventListener('click', () => this.removeDir(dir));
 
         const countEl = document.createElement('span');
         countEl.className = 'library-section-count';
-        countEl.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+        countEl.textContent = window.VLi18n.t('dynamic.files', { n: files.length });
 
         header.appendChild(title);
         header.appendChild(countEl);
@@ -2231,7 +2660,13 @@ class HomeLibrary {
                 <rect x="2" y="3" width="20" height="14" rx="2"></rect>
                 <polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"></polygon>
             </svg>`;
-            this.thumbnailQueue.push({ filePath, thumbDiv, card });
+            // Only queue thumbnail generation if setting is enabled (default: true)
+            const appSettings = (() => {
+                try { return JSON.parse(localStorage.getItem('vl-app-settings') || '{}'); } catch { return {}; }
+            })();
+            if (appSettings.generateThumbnails !== false) {
+                this.thumbnailQueue.push({ filePath, thumbDiv, card });
+            }
         }
 
         // Play icon overlay (shown on hover via CSS)
@@ -2259,6 +2694,7 @@ class HomeLibrary {
         card.appendChild(info);
 
         card.addEventListener('click', () => {
+            this.trackOpened(filePath);
             this.player.loadVideoFile(filePath);
         });
 
@@ -2376,11 +2812,18 @@ class HomeLibrary {
         this.dirs = this.dirs.filter(d => d !== dir);
         this.saveDirs();
         this.render();
+        if (this.currentView === 'folders') this.renderFoldersView();
     }
 }
 
 // Initialize the player when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    // Apply saved language before anything renders
+    if (window.VLi18n) {
+        window.VLi18n.init();
+        document.documentElement.lang = window.VLi18n.lang;
+    }
+
     console.log('Initializing Vision Lumina...');
     try {
         window.VisionPlayer = new VisionLumina();

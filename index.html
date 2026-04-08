@@ -6,6 +6,7 @@
     <title> Vision Lumina </title>
     <link rel="icon" href="favicon.ico" type="image/ico">
     <link rel="stylesheet" href="style.css">
+    <script src="i18n.js"></script>
 </head>
 <body>
 
@@ -13,10 +14,19 @@
     <div id="homeScreen" class="home-screen">
         <div class="home-header">
             <div class="home-logo">
-                <svg class="home-logo-icon" viewBox="0 0 24 24">
-                    <polygon points="7,3 21,12 7,21" fill="currentColor" stroke="none"></polygon>
-                </svg>
+                <div class="home-logo-icon-wrap">
+                    <svg class="home-logo-icon" viewBox="0 0 24 24">
+                        <polygon points="7,3 21,12 7,21" fill="currentColor" stroke="none"></polygon>
+                    </svg>
+                </div>
                 <span class="home-logo-text">Vision Lumina</span>
+            </div>
+            <div class="home-search">
+                <svg class="home-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="homeSearchInput" class="home-search-input" placeholder="Search library..." data-i18n-ph="header.search_placeholder" autocomplete="off" spellcheck="false">
             </div>
             <div class="home-actions">
                 <button id="addFolderBtn" class="home-btn home-btn--secondary">
@@ -25,7 +35,7 @@
                         <line x1="12" y1="11" x2="12" y2="17"></line>
                         <line x1="9" y1="14" x2="15" y2="14"></line>
                     </svg>
-                    Add folder
+                    <span data-i18n="header.add_folder">Add folder</span>
                 </button>
                 <button id="openFileBtn" class="home-btn home-btn--primary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -35,27 +45,468 @@
                         <line x1="16" y1="17" x2="8" y2="17"></line>
                         <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
-                    Open file
+                    <span data-i18n="header.open_file">Open file</span>
                 </button>
             </div>
         </div>
 
-        <div class="home-content">
-            <!-- Empty state -->
-            <div id="libraryEmpty" class="library-empty">
-                <div class="library-empty-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                </div>
-                <p>No videos in your library yet.</p>
-                <p>Add a folder or drop a video file here to get started.</p>
-            </div>
+        <div class="home-body">
 
-            <!-- Library sections (one per saved directory, injected by HomeLibrary) -->
-            <div id="librarySections" class="library-sections hidden"></div>
+            <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+            <aside class="home-sidebar" id="homeSidebar">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="15" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+
+                <div class="sidebar-section-label" data-i18n="sidebar.section_library">Library</div>
+                <nav class="home-sidebar-nav">
+                    <button class="sidebar-item is-active" data-view="library" data-i18n-title="sidebar.library" title="Library">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="15" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="15" y="14" width="7" height="7" rx="1"></rect>
+                            <rect x="2" y="14" width="7" height="7" rx="1"></rect>
+                        </svg>
+                        <span data-i18n="sidebar.library">Library</span>
+                    </button>
+                    <button class="sidebar-item" data-view="recent" data-i18n-title="sidebar.recent" title="Recent">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span data-i18n="sidebar.recent">Recent</span>
+                    </button>
+                    <button class="sidebar-item" data-view="favorites" data-i18n-title="sidebar.favorites" title="Favorites">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        <span data-i18n="sidebar.favorites">Favorites</span>
+                    </button>
+                    <button class="sidebar-item" data-view="playlists" data-i18n-title="sidebar.playlists" title="Playlists">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                        <span data-i18n="sidebar.playlists">Playlists</span>
+                    </button>
+                </nav>
+
+                <div class="sidebar-divider"></div>
+                <div class="sidebar-section-label" data-i18n="sidebar.section_manage">Manage</div>
+                <nav class="home-sidebar-nav">
+                    <button class="sidebar-item" data-view="folders" data-i18n-title="sidebar.folders" title="Folders">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span data-i18n="sidebar.folders">Folders</span>
+                    </button>
+                    <button class="sidebar-item" data-view="statistics" data-i18n-title="sidebar.statistics" title="Statistics">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        <span data-i18n="sidebar.statistics">Statistics</span>
+                    </button>
+                </nav>
+
+                <div class="home-sidebar-footer">
+                    <div class="sidebar-disk-info" id="sidebarDiskInfo" title="Library size on disk">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                        </svg>
+                        <span id="diskUsageText">—</span>
+                    </div>
+                    <button class="sidebar-item" data-view="settings" data-i18n-title="sidebar.settings" title="Settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        <span data-i18n="sidebar.settings">Settings</span>
+                    </button>
+                    <span class="sidebar-version" data-i18n="sidebar.version">Vision Lumina v1.4</span>
+                </div>
+            </aside>
+
+            <!-- ── Main content ─────────────────────────────────────────────── -->
+            <main class="home-main">
+
+                <!-- View: Library -->
+                <div class="home-content" id="viewLibrary">
+                    <div id="libraryEmpty" class="library-empty">
+                        <div class="library-empty-icon">
+                            <svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <defs>
+                                    <linearGradient id="emptyIconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#A78BFA"/>
+                                        <stop offset="100%" stop-color="#60A5FA"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect x="6" y="10" width="68" height="46" rx="7" stroke="url(#emptyIconGrad)" stroke-width="2.5"/>
+                                <line x1="22" y1="68" x2="58" y2="68" stroke="url(#emptyIconGrad)" stroke-width="2.5"/>
+                                <line x1="40" y1="56" x2="40" y2="68" stroke="url(#emptyIconGrad)" stroke-width="2.5"/>
+                                <polygon points="30,24 56,33 30,42" fill="url(#emptyIconGrad)" opacity="0.75"/>
+                            </svg>
+                        </div>
+                        <h2 class="library-empty-title" data-i18n="library.empty_title">Your library is empty</h2>
+                        <p class="library-empty-desc" data-i18n="library.empty_desc">Add a folder or drop a video file here to get started</p>
+                        <div class="library-empty-actions">
+                            <button class="home-btn home-btn--primary" onclick="document.getElementById('addFolderBtn').click()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                    <line x1="12" y1="11" x2="12" y2="17"></line>
+                                    <line x1="9" y1="14" x2="15" y2="14"></line>
+                                </svg>
+                                <span data-i18n="header.add_folder">Add folder</span>
+                            </button>
+                            <button class="home-btn home-btn--ghost" onclick="document.getElementById('openFileBtn').click()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                <span data-i18n="header.open_file">Open file</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="librarySections" class="library-sections hidden"></div>
+                </div>
+
+                <!-- View: Recent -->
+                <div class="home-content hidden" id="viewRecent">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="recent.title">Recently Played</h2>
+                        <p class="view-subtitle" data-i18n="recent.subtitle">Videos you've watched will appear here</p>
+                    </div>
+                    <div id="recentEmpty" class="library-empty hidden">
+                        <div class="library-empty-icon">
+                            <svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <defs>
+                                    <linearGradient id="recentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#A78BFA"/>
+                                        <stop offset="100%" stop-color="#60A5FA"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle cx="40" cy="38" r="24" stroke="url(#recentGrad)" stroke-width="2.5"/>
+                                <polyline points="40,26 40,38 48,44" stroke="url(#recentGrad)" stroke-width="2.5"/>
+                            </svg>
+                        </div>
+                        <h2 class="library-empty-title" data-i18n="recent.empty_title">No history yet</h2>
+                        <p class="library-empty-desc" data-i18n="recent.empty_desc">Videos you open will appear here automatically</p>
+                    </div>
+                    <div id="recentGrid" class="library-grid"></div>
+                </div>
+
+                <!-- View: Folders -->
+                <div class="home-content hidden" id="viewFolders">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="folders.title">Folders</h2>
+                        <p class="view-subtitle" data-i18n="folders.subtitle">Manage your library sources</p>
+                    </div>
+                    <div id="foldersEmpty" class="library-empty hidden">
+                        <div class="library-empty-icon">
+                            <svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <defs>
+                                    <linearGradient id="foldersGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#A78BFA"/>
+                                        <stop offset="100%" stop-color="#60A5FA"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M14 22 h18 l5 7 h23 a4 4 0 0 1 4 4 v20 a4 4 0 0 1 -4 4 H14 a4 4 0 0 1 -4 -4 V26 a4 4 0 0 1 4 -4 z" stroke="url(#foldersGrad)" stroke-width="2.5"/>
+                            </svg>
+                        </div>
+                        <h2 class="library-empty-title" data-i18n="folders.empty_title">No folders added</h2>
+                        <p class="library-empty-desc" data-i18n="folders.empty_desc">Add a folder to start building your library</p>
+                        <div class="library-empty-actions">
+                            <button class="home-btn home-btn--primary" onclick="document.getElementById('addFolderBtn').click()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                    <line x1="12" y1="11" x2="12" y2="17"></line>
+                                    <line x1="9" y1="14" x2="15" y2="14"></line>
+                                </svg>
+                                <span data-i18n="header.add_folder">Add folder</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="foldersGrid" class="folders-grid"></div>
+                </div>
+
+                <!-- View: Favorites (placeholder) -->
+                <div class="home-content hidden" id="viewFavorites">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="favorites.title">Favorites</h2>
+                        <p class="view-subtitle" data-i18n="favorites.subtitle">Your starred videos will appear here</p>
+                    </div>
+                    <div class="coming-soon-placeholder">
+                        <svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <defs>
+                                <linearGradient id="favGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#A78BFA"/>
+                                    <stop offset="100%" stop-color="#60A5FA"/>
+                                </linearGradient>
+                            </defs>
+                            <polygon points="40,14 47,31 66,33 53,45 56,64 40,56 24,64 27,45 14,33 33,31" stroke="url(#favGrad)" stroke-width="2.5"/>
+                        </svg>
+                        <p data-i18n="favorites.coming_soon">Coming soon</p>
+                    </div>
+                </div>
+
+                <!-- View: Playlists (placeholder) -->
+                <div class="home-content hidden" id="viewPlaylists">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="playlists.title">Playlists</h2>
+                        <p class="view-subtitle" data-i18n="playlists.subtitle">Organize your videos into playlists</p>
+                    </div>
+                    <div class="coming-soon-placeholder">
+                        <svg viewBox="0 0 80 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <defs>
+                                <linearGradient id="playGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#A78BFA"/>
+                                    <stop offset="100%" stop-color="#60A5FA"/>
+                                </linearGradient>
+                            </defs>
+                            <line x1="20" y1="28" x2="60" y2="28" stroke="url(#playGrad)" stroke-width="2.5"/>
+                            <line x1="20" y1="40" x2="60" y2="40" stroke="url(#playGrad)" stroke-width="2.5"/>
+                            <line x1="20" y1="52" x2="44" y2="52" stroke="url(#playGrad)" stroke-width="2.5"/>
+                            <circle cx="12" cy="28" r="3" fill="url(#playGrad)"/>
+                            <circle cx="12" cy="40" r="3" fill="url(#playGrad)"/>
+                            <circle cx="12" cy="52" r="3" fill="url(#playGrad)"/>
+                        </svg>
+                        <p data-i18n="playlists.coming_soon">Coming soon</p>
+                    </div>
+                </div>
+
+                <!-- View: Statistics -->
+                <div class="home-content hidden" id="viewStatistics">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="stats.title">Statistics</h2>
+                        <p class="view-subtitle" data-i18n="stats.subtitle">Your library insights and watch history</p>
+                    </div>
+
+                    <!-- Stat cards -->
+                    <div class="stats-cards" id="statsCards">
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--purple">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statTotalVideos">—</div>
+                                <div class="stat-card-label" data-i18n="stats.total_videos">Total videos</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--blue">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statLibrarySize">—</div>
+                                <div class="stat-card-label" data-i18n="stats.library_size">Library size</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--teal">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statRecentCount">—</div>
+                                <div class="stat-card-label" data-i18n="stats.opened_30d">Opened last 30 days</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--orange">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statFolderCount">—</div>
+                                <div class="stat-card-label" data-i18n="stats.folder_count">Folders in library</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Library breakdown -->
+                    <div class="stats-section" id="statsFoldersSection">
+                        <h3 class="stats-section-title" data-i18n="stats.breakdown">Library breakdown</h3>
+                        <div class="stats-bars" id="statsFolderBars"></div>
+                    </div>
+
+                    <!-- Recently watched -->
+                    <div class="stats-section" id="statsRecentSection">
+                        <h3 class="stats-section-title" data-i18n="stats.recently_watched">Recently watched</h3>
+                        <div class="stats-empty hidden" id="statsRecentEmpty" data-i18n="stats.no_history">No watch history yet</div>
+                        <div class="library-grid" id="statsRecentGrid"></div>
+                    </div>
+                </div>
+
+                <!-- View: Settings -->
+                <div class="home-content hidden" id="viewSettings">
+                    <div class="view-header">
+                        <h2 class="view-title" data-i18n="settings.title">Settings</h2>
+                        <p class="view-subtitle" data-i18n="settings.subtitle">Player preferences and configuration</p>
+                    </div>
+
+                    <div class="settings-page">
+
+                        <!-- Playback -->
+                        <div class="settings-group">
+                            <div class="settings-group-title" data-i18n="settings.group_playback">Playback</div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.volume_label">Default volume</div>
+                                    <div class="settings-row-desc" data-i18n="settings.volume_desc">Volume level when opening the player</div>
+                                </div>
+                                <div class="settings-row-control settings-volume-wrap">
+                                    <input type="range" id="settingDefaultVolume" class="settings-slider" min="0" max="150" step="5" value="50">
+                                    <span class="settings-slider-val" id="settingDefaultVolumeVal">50%</span>
+                                </div>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.resume_label">Resume from last position</div>
+                                    <div class="settings-row-desc" data-i18n="settings.resume_desc">Automatically continue where you left off</div>
+                                </div>
+                                <label class="settings-toggle-wrap">
+                                    <input type="checkbox" id="settingResume" class="settings-checkbox">
+                                    <span class="settings-toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.autonext_label">Auto-play next file</div>
+                                    <div class="settings-row-desc" data-i18n="settings.autonext_desc">Play the next video in the folder when current ends</div>
+                                </div>
+                                <label class="settings-toggle-wrap">
+                                    <input type="checkbox" id="settingAutoNext" class="settings-checkbox">
+                                    <span class="settings-toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.hwaccel_label">Hardware acceleration</div>
+                                    <div class="settings-row-desc" data-i18n="settings.hwaccel_desc">Use GPU for video decoding (requires restart)</div>
+                                </div>
+                                <label class="settings-toggle-wrap">
+                                    <input type="checkbox" id="settingHwAccel" class="settings-checkbox">
+                                    <span class="settings-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Library -->
+                        <div class="settings-group">
+                            <div class="settings-group-title" data-i18n="settings.group_library">Library</div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.thumbnails_label">Generate thumbnails</div>
+                                    <div class="settings-row-desc" data-i18n="settings.thumbnails_desc">Extract preview images from video files</div>
+                                </div>
+                                <label class="settings-toggle-wrap">
+                                    <input type="checkbox" id="settingThumbnails" class="settings-checkbox" checked>
+                                    <span class="settings-toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.cache_label">Thumbnail cache</div>
+                                    <div class="settings-row-desc" id="settingCacheDesc">…</div>
+                                </div>
+                                <button class="settings-action-btn settings-action-btn--danger" id="settingClearCache" data-i18n="settings.cache_clear">Clear cache</button>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.history_label">Watch history</div>
+                                    <div class="settings-row-desc" id="settingHistoryDesc">…</div>
+                                </div>
+                                <button class="settings-action-btn settings-action-btn--danger" id="settingClearHistory" data-i18n="settings.history_clear">Clear history</button>
+                            </div>
+                        </div>
+
+                        <!-- Appearance -->
+                        <div class="settings-group">
+                            <div class="settings-group-title" data-i18n="settings.group_appearance">Appearance</div>
+
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.ambient_label">Ambient mode glow intensity</div>
+                                    <div class="settings-row-desc" data-i18n="settings.ambient_desc">Brightness of the ambient backlight effect</div>
+                                </div>
+                                <div class="settings-row-control settings-volume-wrap">
+                                    <input type="range" id="settingAmbientIntensity" class="settings-slider" min="10" max="100" step="10" value="50">
+                                    <span class="settings-slider-val" id="settingAmbientIntensityVal">50%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Language -->
+                        <div class="settings-group">
+                            <div class="settings-group-title" data-i18n="settings.group_language">Language</div>
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <div class="settings-row-label" data-i18n="settings.language_label">Interface language</div>
+                                    <div class="settings-row-desc" data-i18n="settings.language_desc">Choose the display language for the app</div>
+                                </div>
+                                <div class="settings-lang-btns">
+                                    <button class="lang-btn" data-lang="en">English</button>
+                                    <button class="lang-btn" data-lang="ru">Русский</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- About -->
+                        <div class="settings-group settings-group--about">
+                            <div class="settings-group-title" data-i18n="settings.group_about">About</div>
+                            <div class="settings-about-block">
+                                <div class="settings-about-logo">
+                                    <div class="home-logo-icon-wrap">
+                                        <svg class="home-logo-icon" viewBox="0 0 24 24">
+                                            <polygon points="7,3 21,12 7,21" fill="currentColor" stroke="none"></polygon>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="settings-about-name">Vision Lumina</div>
+                                        <div class="settings-about-version" data-i18n="settings.about_version">Version 1.4.0</div>
+                                    </div>
+                                </div>
+                                <div class="settings-about-meta">
+                                    <span data-i18n="settings.about_credits">Made by ZeFair Network</span>
+                                    <span class="settings-about-dot">·</span>
+                                    <span data-i18n="settings.about_tech">Electron + HTML5 Video</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </main>
         </div>
     </div>
 
@@ -242,7 +693,7 @@
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                         <path d="M19.07 4.93a9 9 0 0 1 0 14.14"></path>
                     </svg>
-                    <span>Stable Volume</span>
+                    <span data-i18n="player.stable_volume">Stable Volume</span>
                 </div>
                 <label class="toggle-switch">
                     <input type="checkbox" id="stableVolumeToggle">
@@ -263,7 +714,7 @@
                         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
                         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                     </svg>
-                    <span>Ambient mode</span>
+                    <span data-i18n="player.ambient_mode">Ambient mode</span>
                 </div>
                 <label class="toggle-switch">
                     <input type="checkbox" id="ambientToggle">
@@ -278,10 +729,10 @@
                         <line x1="6" y1="10" x2="18" y2="10"></line>
                         <line x1="6" y1="14" x2="14" y2="14"></line>
                     </svg>
-                    <span>Subtitles/CC</span>
+                    <span data-i18n="player.subtitles">Subtitles/CC</span>
                 </div>
                 <div class="settings-value">
-                    <span id="subtitlesValue">Off</span>
+                    <span id="subtitlesValue" data-i18n="player.value_off">Off</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
@@ -295,10 +746,10 @@
                         <circle cx="6" cy="18" r="3"></circle>
                         <circle cx="18" cy="16" r="3"></circle>
                     </svg>
-                    <span>Audio track</span>
+                    <span data-i18n="player.audio_track">Audio track</span>
                 </div>
                 <div class="settings-value">
-                    <span id="audioTrackValue">Default</span>
+                    <span id="audioTrackValue" data-i18n="player.value_default">Default</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
@@ -311,10 +762,10 @@
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12,6 12,12 16,14"></polyline>
                     </svg>
-                    <span>Sleep timer</span>
+                    <span data-i18n="player.sleep_timer">Sleep timer</span>
                 </div>
                 <div class="settings-value">
-                    <span id="sleepTimerValue">Off</span>
+                    <span id="sleepTimerValue" data-i18n="player.value_off">Off</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
@@ -326,10 +777,10 @@
                     <svg class="settings-icon" viewBox="0 0 24 24">
                         <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" fill="currentColor" stroke="none"></polygon>
                     </svg>
-                    <span>Playback speed</span>
+                    <span data-i18n="player.playback_speed">Playback speed</span>
                 </div>
                 <div class="settings-value">
-                    <span id="playbackSpeedValue">Normal</span>
+                    <span id="playbackSpeedValue" data-i18n="player.value_normal">Normal</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
@@ -343,10 +794,10 @@
                         <line x1="8" y1="21" x2="16" y2="21"></line>
                         <line x1="12" y1="17" x2="12" y2="21"></line>
                     </svg>
-                    <span>Quality</span>
+                    <span data-i18n="player.quality">Quality</span>
                 </div>
                 <div class="settings-value">
-                    <span id="qualityValue">Auto</span>
+                    <span id="qualityValue" data-i18n="player.value_auto">Auto</span>
                     <svg class="arrow-right" viewBox="0 0 24 24" fill="white">
                         <polyline points="9,18 15,12 9,6"></polyline>
                     </svg>
@@ -362,13 +813,13 @@
                         <polyline points="15,18 9,12 15,6"></polyline>
                     </svg>
                 </button>
-                <span>Sleep timer</span>
+                <span data-i18n="player.sleep_timer">Sleep timer</span>
             </div>
-            <div class="submenu-option" data-value="Off">Off</div>
-            <div class="submenu-option" data-value="10 minutes">10 minutes</div>
-            <div class="submenu-option" data-value="15 minutes">15 minutes</div>
-            <div class="submenu-option" data-value="30 minutes">30 minutes</div>
-            <div class="submenu-option" data-value="60 minutes">60 minutes</div>
+            <div class="submenu-option" data-value="Off" data-i18n="player.value_off">Off</div>
+            <div class="submenu-option" data-value="10 minutes" data-i18n="player.sleep_10">10 minutes</div>
+            <div class="submenu-option" data-value="15 minutes" data-i18n="player.sleep_15">15 minutes</div>
+            <div class="submenu-option" data-value="30 minutes" data-i18n="player.sleep_30">30 minutes</div>
+            <div class="submenu-option" data-value="60 minutes" data-i18n="player.sleep_60">60 minutes</div>
         </div>
 
         <div id="speedSubmenu" class="settings-submenu hidden">
@@ -378,12 +829,12 @@
                         <polyline points="15,18 9,12 15,6"></polyline>
                     </svg>
                 </button>
-                <span>Playback speed</span>
+                <span data-i18n="player.playback_speed">Playback speed</span>
             </div>
             <div class="submenu-option" data-value="0.25">0.25</div>
             <div class="submenu-option" data-value="0.5">0.5</div>
             <div class="submenu-option" data-value="0.75">0.75</div>
-            <div class="submenu-option active" data-value="Normal">Normal</div>
+            <div class="submenu-option active" data-value="Normal" data-i18n="player.value_normal">Normal</div>
             <div class="submenu-option" data-value="1.25">1.25</div>
             <div class="submenu-option" data-value="1.5">1.5</div>
             <div class="submenu-option" data-value="1.75">1.75</div>
@@ -397,7 +848,7 @@
                         <polyline points="15,18 9,12 15,6"></polyline>
                     </svg>
                 </button>
-                <span>Quality</span>
+                <span data-i18n="player.quality">Quality</span>
             </div>
         </div>
 
@@ -408,7 +859,7 @@
                         <polyline points="15,18 9,12 15,6"></polyline>
                     </svg>
                 </button>
-                <span>Audio track</span>
+                <span data-i18n="player.audio_track">Audio track</span>
             </div>
         </div>
 
@@ -419,10 +870,10 @@
                         <polyline points="15,18 9,12 15,6"></polyline>
                     </svg>
                 </button>
-                <span>Subtitles/CC</span>
+                <span data-i18n="player.subtitles">Subtitles/CC</span>
             </div>
-            <div class="submenu-option" data-value="off">Off</div>
-            <div class="submenu-option" data-value="load">Load file (.srt / .vtt)...</div>
+            <div class="submenu-option" data-value="off" data-i18n="player.value_off">Off</div>
+            <div class="submenu-option" data-value="load" data-i18n="player.subtitles_load">Load file (.srt / .vtt)...</div>
         </div>
     </div>
 
@@ -434,7 +885,7 @@
                 <line x1="12" y1="12" x2="12" y2="21"></line>
                 <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
             </svg>
-            <span>Drop video file to play</span>
+            <span data-i18n="player.drop_video">Drop video file to play</span>
         </div>
     </div>
 
@@ -445,13 +896,13 @@
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            Copy timestamp
+            <span data-i18n="player.copy_timestamp">Copy timestamp</span>
         </div>
         <div class="context-menu-item" id="ctxOpenInExplorer">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
-            Open in Explorer
+            <span data-i18n="player.open_in_explorer">Open in Explorer</span>
         </div>
     </div>
 
