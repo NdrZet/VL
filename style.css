@@ -3074,3 +3074,434 @@ select.form-control {
   border-radius: 2px;
   transition: width 0.5s linear;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FAVORITES & PLAYLISTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Shared grid for favorites and playlist detail ─── */
+.fav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+  padding: 0 24px 32px;
+}
+
+/* ─── Empty state (shared) ─── */
+.fav-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 24px;
+  text-align: center;
+}
+.fav-empty svg {
+  width: 72px;
+  height: 72px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+}
+.fav-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+.fav-empty-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+}
+
+/* ─── Star / favorite button on library cards ─── */
+.card-actions {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.18s;
+  z-index: 10;
+}
+.library-card:hover .card-actions {
+  opacity: 1;
+}
+.card-fav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(10, 10, 15, 0.65);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.card-fav-btn:hover {
+  color: #fbbf24;
+  background: rgba(10, 10, 15, 0.85);
+}
+.card-fav-btn.is-fav {
+  color: #fbbf24;
+}
+.card-fav-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ─── Card context menu ─── */
+.card-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(22, 24, 30, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  padding: 5px;
+  min-width: 210px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px);
+}
+.card-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.card-ctx-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.95);
+}
+.card-ctx-item.is-fav-item {
+  color: #fbbf24;
+}
+.card-ctx-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.card-ctx-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 4px 0;
+}
+.card-ctx-submenu-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.28);
+  padding: 4px 12px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.card-ctx-pl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.card-ctx-pl-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.9);
+}
+.card-ctx-pl-item svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.card-ctx-new-pl {
+  color: #a78bfa;
+}
+.card-ctx-new-pl svg {
+  color: #a78bfa;
+  opacity: 1;
+}
+
+/* ─── View header variant with flex for action button ─── */
+.view-header--flex {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* ─── Create playlist button ─── */
+.create-pl-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.create-pl-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.create-pl-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.55);
+  color: #c4b5fd;
+}
+
+/* ─── Create playlist inline form ─── */
+.create-pl-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px 20px;
+}
+.create-pl-input {
+  flex: 1;
+  max-width: 360px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.create-pl-input:focus {
+  border-color: rgba(139, 92, 246, 0.65);
+}
+.create-pl-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+.create-pl-confirm {
+  padding: 8px 18px;
+  border-radius: 9px;
+  border: none;
+  background: rgba(139, 92, 246, 0.55);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.create-pl-confirm:hover {
+  background: rgba(139, 92, 246, 0.75);
+}
+.create-pl-cancel {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.create-pl-cancel:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Playlists grid ─── */
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+  padding: 0 24px 32px;
+}
+
+/* ─── Playlist card ─── */
+.pl-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.18s;
+}
+.pl-card:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(139, 92, 246, 0.45);
+  transform: translateY(-2px);
+}
+.pl-card-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: rgba(139, 92, 246, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.pl-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pl-card-count-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 7px;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+.pl-card-info {
+  padding: 11px 14px 13px;
+}
+.pl-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-card-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── Playlist detail view ─── */
+.pl-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pl-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.pl-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.pl-back-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+}
+.pl-back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.pl-detail-info {
+  flex: 1;
+  min-width: 0;
+}
+.pl-detail-title {
+  font-size: 18px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 2px;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-detail-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+.pl-detail-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pl-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.pl-action-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.pl-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.pl-play-all-btn {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+}
+.pl-play-all-btn:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #c4b5fd;
+}
+.pl-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: #f87171;
+}
+.pl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 60px 24px;
+  text-align: center;
+}
+}

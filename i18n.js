@@ -45,12 +45,28 @@ window.VLi18n = (() => {
             // Favorites view
             'favorites.title': 'Favorites',
             'favorites.subtitle': 'Your starred videos will appear here',
-            'favorites.coming_soon': 'Coming soon',
+            'favorites.empty': 'No favorites yet',
+            'favorites.empty_hint': 'Star any video to add it here',
+            'favorites.fav_btn': 'Add to Favorites',
+            'favorites.unfav_btn': 'Remove from Favorites',
 
             // Playlists view
             'playlists.title': 'Playlists',
             'playlists.subtitle': 'Organize your videos into playlists',
-            'playlists.coming_soon': 'Coming soon',
+            'playlists.create': 'New Playlist',
+            'playlists.empty': 'No playlists yet',
+            'playlists.empty_hint': 'Create your first playlist to organize videos',
+            'playlists.empty_playlist': 'This playlist is empty',
+            'playlists.empty_playlist_hint': 'Add videos using the button above',
+            'playlists.play_all': 'Play All',
+            'playlists.back': 'Back',
+            'playlists.delete': 'Delete Playlist',
+            'playlists.rename': 'Rename',
+            'playlists.add_videos': 'Add Videos',
+            'playlists.add_to': 'Add to playlist',
+            'playlists.remove_video': 'Remove from playlist',
+            'playlists.name_placeholder': 'Playlist name…',
+            'playlists.create_confirm': 'Create',
 
             // Statistics view
             'stats.title': 'Statistics',
@@ -134,6 +150,7 @@ window.VLi18n = (() => {
             'dynamic.no_thumbnails': 'No thumbnails cached',
             'dynamic.history_items': ['{n} video in history', '{n} videos in history'],
             'dynamic.history_empty': 'History is empty',
+            'dynamic.pl_videos': ['{n} video', '{n} videos'],
         },
 
         ru: {
@@ -173,12 +190,28 @@ window.VLi18n = (() => {
             // Favorites view
             'favorites.title': 'Избранное',
             'favorites.subtitle': 'Здесь появятся видео, отмеченные звёздочкой',
-            'favorites.coming_soon': 'Скоро',
+            'favorites.empty': 'Нет избранного',
+            'favorites.empty_hint': 'Отмечайте видео звёздочкой, чтобы добавить сюда',
+            'favorites.fav_btn': 'В избранное',
+            'favorites.unfav_btn': 'Убрать из избранного',
 
             // Playlists view
             'playlists.title': 'Плейлисты',
             'playlists.subtitle': 'Организуйте видео в плейлисты',
-            'playlists.coming_soon': 'Скоро',
+            'playlists.create': 'Новый плейлист',
+            'playlists.empty': 'Нет плейлистов',
+            'playlists.empty_hint': 'Создайте первый плейлист для организации видео',
+            'playlists.empty_playlist': 'Плейлист пуст',
+            'playlists.empty_playlist_hint': 'Добавьте видео с помощью кнопки выше',
+            'playlists.play_all': 'Воспроизвести всё',
+            'playlists.back': 'Назад',
+            'playlists.delete': 'Удалить плейлист',
+            'playlists.rename': 'Переименовать',
+            'playlists.add_videos': 'Добавить видео',
+            'playlists.add_to': 'Добавить в плейлист',
+            'playlists.remove_video': 'Убрать из плейлиста',
+            'playlists.name_placeholder': 'Название плейлиста…',
+            'playlists.create_confirm': 'Создать',
 
             // Statistics view
             'stats.title': 'Статистика',
@@ -262,6 +295,7 @@ window.VLi18n = (() => {
             'dynamic.no_thumbnails': 'Кэш миниатюр пуст',
             'dynamic.history_items': ['{n} видео в истории', '{n} видео в истории', '{n} видео в истории'],
             'dynamic.history_empty': 'История пуста',
+            'dynamic.pl_videos': ['{n} видео', '{n} видео', '{n} видео'],
         }
     };
 

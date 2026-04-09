@@ -496,7 +496,7 @@ class VisionLumina {
             }
         }
         this.settings.audioTrack = this.currentAudioTrack.label;
-        this.audioTrackValue.textContent = this.currentAudioTrack.label;
+        this.audioTrackValue.textContent = this._tv(this.currentAudioTrack.label);
         this.buildAudioTrackMenu();
         console.log(`Audio tracks committed: ${this.availableAudioTracks.length}, best: ${bestIdx} (${this.currentAudioTrack.label})`);
     }
@@ -769,7 +769,7 @@ class VisionLumina {
 
     selectSleepTimer(value) {
         this.settings.sleepTimer = value;
-        this.sleepTimerValue.textContent = value;
+        this.sleepTimerValue.textContent = this._tv(value);
         this.updateActiveOption('sleepTimerSubmenu', value);
         this.cancelSleepTimer();
 
@@ -789,7 +789,7 @@ class VisionLumina {
                     this.pause();
                     this.showSleepNotification('Sleep timer: Playback paused', 4000);
                     this.settings.sleepTimer = 'Off';
-                    this.sleepTimerValue.textContent = 'Off';
+                    this.sleepTimerValue.textContent = this._tv('Off');
                 }, ms);
 
                 console.log(`Sleep timer set for ${minutes} minutes`);
@@ -1067,10 +1067,10 @@ class VisionLumina {
     initializeSettings() {
         this.stableVolumeToggle.checked = this.settings.stableVolume;
         this.ambientToggle.checked = this.settings.ambientMode;
-        this.sleepTimerValue.textContent = this.settings.sleepTimer;
-        this.playbackSpeedValue.textContent = this.settings.playbackSpeed;
-        this.qualityValue.textContent = this.settings.quality;
-        this.audioTrackValue.textContent = this.settings.audioTrack;
+        this.sleepTimerValue.textContent = this._tv(this.settings.sleepTimer);
+        this.playbackSpeedValue.textContent = this._tv(this.settings.playbackSpeed);
+        this.qualityValue.textContent = this._tv(this.settings.quality);
+        this.audioTrackValue.textContent = this._tv(this.settings.audioTrack);
         // Default volume from app settings (falls back to 50%)
         const appSettings = this._loadAppSettingsPlayer();
         const vol = appSettings.defaultVolume !== undefined ? appSettings.defaultVolume / 100 : 0.5;
@@ -1234,7 +1234,7 @@ class VisionLumina {
 
     selectPlaybackSpeed(value) {
         this.settings.playbackSpeed = value;
-        this.playbackSpeedValue.textContent = value;
+        this.playbackSpeedValue.textContent = this._tv(value);
 
         const speedMap = {
             '0.25': 0.25, '0.5': 0.5, '0.75': 0.75,
@@ -2160,6 +2160,374 @@ class HomeLibrary {
         }
     }
 
+    // ── Favorites ─────────────────────────────────────────────────────────────
+
+    getFavorites() {
+        try { return JSON.parse(localStorage.getItem('vl-favorites') || '[]'); }
+        catch { return []; }
+    }
+
+    saveFavorites(arr) {
+        localStorage.setItem('vl-favorites', JSON.stringify(arr));
+    }
+
+    isFavorite(filePath) {
+        return this.getFavorites().includes(filePath);
+    }
+
+    toggleFavorite(filePath) {
+        const favs = this.getFavorites();
+        const idx = favs.indexOf(filePath);
+        const nowFav = idx === -1;
+        if (nowFav) favs.push(filePath);
+        else         favs.splice(idx, 1);
+        this.saveFavorites(favs);
+        // Sync all fav-btn instances for this path
+        document.querySelectorAll(`.card-fav-btn[data-path]`).forEach(btn => {
+            if (btn.dataset.path === filePath) {
+                btn.classList.toggle('is-fav', nowFav);
+                btn.querySelector('svg').setAttribute('fill', nowFav ? 'currentColor' : 'none');
+                if (window.VLi18n) {
+                    btn.title = window.VLi18n.t(nowFav ? 'favorites.unfav_btn' : 'favorites.fav_btn');
+                }
+            }
+        });
+        if (this.currentView === 'favorites') this.renderFavoritesView();
+    }
+
+    renderFavoritesView() {
+        const grid  = document.getElementById('favoritesGrid');
+        const empty = document.getElementById('favEmpty');
+        if (!grid) return;
+
+        this.thumbnailQueue = [];
+        this.activeThumbnailJobs = 0;
+
+        const favs = this.getFavorites();
+        grid.innerHTML = '';
+
+        if (favs.length === 0) {
+            if (empty) empty.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            if (empty) empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            const path = require('path');
+            favs.forEach((fp, i) => grid.appendChild(this.buildCard(fp, path, i)));
+            this.processThumbnailQueue();
+        }
+    }
+
+    // ── Playlists ──────────────────────────────────────────────────────────────
+
+    getPlaylists() {
+        try { return JSON.parse(localStorage.getItem('vl-playlists') || '[]'); }
+        catch { return []; }
+    }
+
+    savePlaylists(arr) {
+        localStorage.setItem('vl-playlists', JSON.stringify(arr));
+    }
+
+    createPlaylist(name) {
+        const playlists = this.getPlaylists();
+        const pl = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, files: [], createdAt: Date.now() };
+        playlists.push(pl);
+        this.savePlaylists(playlists);
+        return pl;
+    }
+
+    deletePlaylist(id) {
+        this.savePlaylists(this.getPlaylists().filter(pl => pl.id !== id));
+    }
+
+    renamePlaylist(id, name) {
+        const playlists = this.getPlaylists();
+        const pl = playlists.find(p => p.id === id);
+        if (pl) { pl.name = name; this.savePlaylists(playlists); }
+    }
+
+    addToPlaylist(id, filePath) {
+        const playlists = this.getPlaylists();
+        const pl = playlists.find(p => p.id === id);
+        if (pl && !pl.files.includes(filePath)) {
+            pl.files.push(filePath);
+            this.savePlaylists(playlists);
+        }
+    }
+
+    removeFromPlaylist(id, filePath) {
+        const playlists = this.getPlaylists();
+        const pl = playlists.find(p => p.id === id);
+        if (pl) {
+            pl.files = pl.files.filter(f => f !== filePath);
+            this.savePlaylists(playlists);
+        }
+    }
+
+    renderPlaylistsView() {
+        const grid   = document.getElementById('playlistsGrid');
+        const empty  = document.getElementById('playlistsEmpty');
+        const main   = document.getElementById('playlistsMain');
+        const detail = document.getElementById('playlistDetail');
+        if (!grid) return;
+
+        if (main)   main.classList.remove('hidden');
+        if (detail) detail.classList.add('hidden');
+
+        const playlists = this.getPlaylists();
+        grid.innerHTML = '';
+
+        if (playlists.length === 0) {
+            if (empty) empty.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            if (empty) empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            playlists.forEach(pl => grid.appendChild(this.buildPlaylistCard(pl)));
+        }
+
+        // Create-playlist form bindings
+        const createBtn = document.getElementById('createPlaylistBtn');
+        const form      = document.getElementById('createPlForm');
+        const input     = document.getElementById('createPlInput');
+        const confirm   = document.getElementById('createPlConfirm');
+        const cancel    = document.getElementById('createPlCancel');
+
+        if (createBtn) createBtn.onclick = () => { form?.classList.remove('hidden'); input?.focus(); };
+        if (confirm)   confirm.onclick   = () => this._confirmCreatePlaylist();
+        if (cancel)    cancel.onclick    = () => { form?.classList.add('hidden'); if (input) input.value = ''; };
+        if (input) {
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter')  this._confirmCreatePlaylist();
+                if (e.key === 'Escape') { form?.classList.add('hidden'); if (input) input.value = ''; }
+            };
+        }
+
+        // If we navigated here to add a file to a new playlist, open the form
+        if (this.pendingAddToNew) {
+            form?.classList.remove('hidden');
+            input?.focus();
+        }
+    }
+
+    _confirmCreatePlaylist() {
+        const input = document.getElementById('createPlInput');
+        const form  = document.getElementById('createPlForm');
+        const name  = input?.value.trim();
+        if (!name) { input?.focus(); return; }
+        const pl = this.createPlaylist(name);
+        if (this.pendingAddToNew) {
+            this.addToPlaylist(pl.id, this.pendingAddToNew);
+            this.pendingAddToNew = null;
+        }
+        if (input) input.value = '';
+        form?.classList.add('hidden');
+        this.renderPlaylistsView();
+    }
+
+    buildPlaylistCard(pl) {
+        const t = (key, opts) => window.VLi18n ? window.VLi18n.t(key, opts) : key;
+        const card = document.createElement('div');
+        card.className = 'pl-card';
+
+        const firstFile  = pl.files[0];
+        const cached     = firstFile ? this.cache[firstFile] : null;
+        const thumbHtml  = (cached && cached.thumbDataUrl)
+            ? `<img src="${cached.thumbDataUrl}" alt="">`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.45)" stroke-width="1.5" width="36" height="36"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+
+        card.innerHTML = `
+            <div class="pl-card-thumb">
+                ${thumbHtml}
+                <div class="pl-card-count-badge">${t('dynamic.pl_videos', { n: pl.files.length })}</div>
+            </div>
+            <div class="pl-card-info">
+                <div class="pl-card-name">${this._escHtml(pl.name)}</div>
+                <div class="pl-card-count">${t('dynamic.pl_videos', { n: pl.files.length })}</div>
+            </div>`;
+
+        card.addEventListener('click', () => this.renderPlaylistDetail(pl.id));
+        return card;
+    }
+
+    renderPlaylistDetail(id) {
+        const main    = document.getElementById('playlistsMain');
+        const detail  = document.getElementById('playlistDetail');
+        const titleEl = document.getElementById('plDetailTitle');
+        const countEl = document.getElementById('plDetailCount');
+        const grid    = document.getElementById('plDetailGrid');
+        const emptyEl = document.getElementById('plDetailEmpty');
+        if (!detail || !grid) return;
+
+        const t = (key, opts) => window.VLi18n ? window.VLi18n.t(key, opts) : key;
+
+        const playlists = this.getPlaylists();
+        const pl = playlists.find(p => p.id === id);
+        if (!pl) { this.renderPlaylistsView(); return; }
+
+        this.currentPlaylistId = id;
+        if (main)   main.classList.add('hidden');
+        detail.classList.remove('hidden');
+
+        if (titleEl) titleEl.textContent = pl.name;
+        if (countEl) countEl.textContent = t('dynamic.pl_videos', { n: pl.files.length });
+
+        this.thumbnailQueue = [];
+        this.activeThumbnailJobs = 0;
+        grid.innerHTML = '';
+
+        if (pl.files.length === 0) {
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            grid.classList.add('hidden');
+        } else {
+            if (emptyEl) emptyEl.classList.add('hidden');
+            grid.classList.remove('hidden');
+            const path = require('path');
+            pl.files.forEach((fp, i) => {
+                const card = this.buildCard(fp, path, i);
+                // Add remove-from-playlist button inside card-actions
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'card-fav-btn';
+                removeBtn.title = t('playlists.remove_video');
+                removeBtn.style.color = 'rgba(255,255,255,0.5)';
+                removeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.removeFromPlaylist(id, fp);
+                    this.renderPlaylistDetail(id);
+                });
+                const actions = card.querySelector('.card-actions');
+                if (actions) actions.prepend(removeBtn);
+                grid.appendChild(card);
+            });
+            this.processThumbnailQueue();
+        }
+
+        // Header button bindings
+        const backBtn    = document.getElementById('plBackBtn');
+        const playAllBtn = document.getElementById('plPlayAllBtn');
+        const addBtn     = document.getElementById('plAddVideosBtn');
+        const renameBtn  = document.getElementById('plRenameBtn');
+        const deleteBtn  = document.getElementById('plDeleteBtn');
+
+        if (backBtn)    backBtn.onclick = () => this.renderPlaylistsView();
+        if (playAllBtn) playAllBtn.onclick = () => {
+            if (pl.files.length === 0) return;
+            this.player.loadVideoFile(pl.files[0]);
+        };
+        if (addBtn) addBtn.onclick = async () => {
+            try {
+                const result = await ipcRenderer.invoke('show-open-dialog', {
+                    title: t('playlists.add_videos'),
+                    filters: [
+                        { name: 'Video Files', extensions: ['mp4','avi','mkv','mov','wmv','flv','webm','m4v','3gp','ogv','ts','mts'] },
+                        { name: 'All Files', extensions: ['*'] }
+                    ],
+                    properties: ['openFile', 'multiSelections']
+                });
+                if (!result.canceled && result.filePaths.length) {
+                    result.filePaths.forEach(fp => this.addToPlaylist(id, fp));
+                    this.renderPlaylistDetail(id);
+                }
+            } catch (e) { console.error('Add videos dialog error:', e); }
+        };
+        if (renameBtn) renameBtn.onclick = () => {
+            const newName = prompt(t('playlists.rename'), pl.name);
+            if (newName && newName.trim()) {
+                this.renamePlaylist(id, newName.trim());
+                this.renderPlaylistDetail(id);
+            }
+        };
+        if (deleteBtn) deleteBtn.onclick = () => {
+            if (confirm(t('playlists.delete') + '?')) {
+                this.deletePlaylist(id);
+                this.renderPlaylistsView();
+            }
+        };
+    }
+
+    // ── Card context menu ──────────────────────────────────────────────────────
+
+    showCardCtxMenu(x, y, filePath) {
+        this.hideCardCtxMenu();
+        const t = (key, opts) => window.VLi18n ? window.VLi18n.t(key, opts) : key;
+        const isFav = this.isFavorite(filePath);
+        const playlists = this.getPlaylists();
+
+        const menu = document.createElement('div');
+        menu.className = 'card-ctx-menu';
+        menu.id = 'cardCtxMenu';
+
+        // Favorite toggle
+        const favItem = document.createElement('div');
+        favItem.className = 'card-ctx-item' + (isFav ? ' is-fav-item' : '');
+        favItem.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="${isFav ? 'currentColor' : 'none'}" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>${t(isFav ? 'favorites.unfav_btn' : 'favorites.fav_btn')}`;
+        favItem.addEventListener('click', () => { this.toggleFavorite(filePath); this.hideCardCtxMenu(); });
+        menu.appendChild(favItem);
+
+        // Playlists section
+        const divider1 = document.createElement('div');
+        divider1.className = 'card-ctx-divider';
+        menu.appendChild(divider1);
+
+        const label = document.createElement('div');
+        label.className = 'card-ctx-submenu-label';
+        label.textContent = t('playlists.add_to');
+        menu.appendChild(label);
+
+        playlists.forEach(pl => {
+            const inPl = pl.files.includes(filePath);
+            const plItem = document.createElement('div');
+            plItem.className = 'card-ctx-pl-item';
+            plItem.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>${this._escHtml(pl.name)}${inPl ? ' ✓' : ''}`;
+            plItem.addEventListener('click', () => {
+                if (inPl) this.removeFromPlaylist(pl.id, filePath);
+                else      this.addToPlaylist(pl.id, filePath);
+                this.hideCardCtxMenu();
+            });
+            menu.appendChild(plItem);
+        });
+
+        // New playlist
+        const divider2 = document.createElement('div');
+        divider2.className = 'card-ctx-divider';
+        menu.appendChild(divider2);
+
+        const newPlItem = document.createElement('div');
+        newPlItem.className = 'card-ctx-pl-item card-ctx-new-pl';
+        newPlItem.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>${t('playlists.create')}`;
+        newPlItem.addEventListener('click', () => {
+            this.hideCardCtxMenu();
+            this.pendingAddToNew = filePath;
+            this.switchView('playlists');
+        });
+        menu.appendChild(newPlItem);
+
+        document.body.appendChild(menu);
+
+        // Position (clamp to viewport)
+        const mw = menu.offsetWidth  || 220;
+        const mh = menu.offsetHeight || 200;
+        menu.style.left = `${Math.min(x, window.innerWidth  - mw - 8)}px`;
+        menu.style.top  = `${Math.min(y, window.innerHeight - mh - 8)}px`;
+
+        this._ctxHideListener = (e) => { if (!menu.contains(e.target)) this.hideCardCtxMenu(); };
+        setTimeout(() => document.addEventListener('click', this._ctxHideListener), 0);
+    }
+
+    hideCardCtxMenu() {
+        document.getElementById('cardCtxMenu')?.remove();
+        if (this._ctxHideListener) {
+            document.removeEventListener('click', this._ctxHideListener);
+            this._ctxHideListener = null;
+        }
+    }
+
+    _escHtml(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     bindEvents() {
@@ -2195,6 +2563,8 @@ class HomeLibrary {
         });
         if (view === 'recent')     this.renderRecentView();
         if (view === 'folders')    this.renderFoldersView();
+        if (view === 'favorites')  this.renderFavoritesView();
+        if (view === 'playlists')  this.renderPlaylistsView();
         if (view === 'statistics') this.renderStatistics();
         if (view === 'settings')   this.renderSettingsPage();
     }
@@ -2675,6 +3045,23 @@ class HomeLibrary {
         playOverlay.innerHTML = `<div class="card-play-icon"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`;
         thumbDiv.appendChild(playOverlay);
 
+        // Card action buttons (star for favorites)
+        const isFav = this.isFavorite(filePath);
+        const t = (key) => window.VLi18n ? window.VLi18n.t(key) : key;
+        const favBtn = document.createElement('button');
+        favBtn.className = 'card-fav-btn' + (isFav ? ' is-fav' : '');
+        favBtn.dataset.path = filePath;
+        favBtn.title = t(isFav ? 'favorites.unfav_btn' : 'favorites.fav_btn');
+        favBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="${isFav ? 'currentColor' : 'none'}"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+        favBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleFavorite(filePath);
+        });
+        const cardActions = document.createElement('div');
+        cardActions.className = 'card-actions';
+        cardActions.appendChild(favBtn);
+        thumbDiv.appendChild(cardActions);
+
         const info = document.createElement('div');
         info.className = 'library-card-info';
 
@@ -2696,6 +3083,11 @@ class HomeLibrary {
         card.addEventListener('click', () => {
             this.trackOpened(filePath);
             this.player.loadVideoFile(filePath);
+        });
+
+        card.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showCardCtxMenu(e.clientX, e.clientY, filePath);
         });
 
         return card;
