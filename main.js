@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 
 let mainWindow;
 let videoFilePath = null;
@@ -13,8 +14,10 @@ function createWindow() {
         minWidth: 800,
         minHeight: 600,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
+            preload: path.join(__dirname, '../app.asar.unpacked/preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: false,
             webSecurity: false // Разрешаем загрузку локальных файлов
         },
         titleBarStyle: 'default',
@@ -23,8 +26,9 @@ function createWindow() {
 
     mainWindow.setMenuBarVisibility(false);
 
-    // Загружаем index.html
-    mainWindow.loadFile('index.html');
+    // Загружаем index.html (loadFile требует прямые слеши, иначе ERR_FAILED на Windows)
+    const indexPath = path.join(__dirname, 'index.html').replace(/\\/g, '/');
+    mainWindow.loadFile(indexPath);
 
     // Открываем DevTools в режиме разработки
     if (process.env.NODE_ENV === 'development') {

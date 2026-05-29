@@ -1,7 +1,7 @@
 {
   "name": "vision-lumina-player",
   "productName": "Vision Lumina",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Video Player",
   "author": "ZeFair Network",
   "main": "main.js",
@@ -11,16 +11,20 @@
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux"
   },
-
-  "keywords": ["video", "player", "electron"],
-
+  "keywords": [
+    "video",
+    "player",
+    "electron"
+  ],
   "devDependencies": {
     "electron": "latest",
-    "electron-builder": "latest"
+    "electron-builder": "latest",
+    "ws": "^8.21.0"
   },
   "build": {
     "appId": "com.zefair-network.vision-lumina-player",
     "productName": "Vision Lumina Player",
+    "asarUnpack": ["preload.js"],
     "directories": {
       "output": "dist"
     },

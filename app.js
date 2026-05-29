@@ -1,5 +1,3 @@
-const { ipcRenderer } = require('electron');
-
 class VisionLumina {
     constructor() {
         // Core elements
@@ -508,7 +506,7 @@ class VisionLumina {
 
         this._setAudioLoading(true);
         try {
-            const result = await ipcRenderer.invoke('extract-audio-track', {
+            const result = await window.vlApi.invoke('extract-audio-track', {
                 filePath: extractingForPath,
                 trackIndex
             });
@@ -519,7 +517,7 @@ class VisionLumina {
                 return;
             }
             if (this._externalAudioPath) {
-                ipcRenderer.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
+                window.vlApi.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
             }
             this._externalAudioPath = result.tempPath;
             this._setupExternalAudio('file:///' + result.tempPath.replace(/\\/g, '/'));
@@ -567,7 +565,7 @@ class VisionLumina {
     // Подготовка аудио: ffprobe → определение кодека → транскодирование если нужно
     async _prepareAudio(filePath) {
         try {
-            const result = await ipcRenderer.invoke('get-audio-tracks-ffprobe', filePath);
+            const result = await window.vlApi.invoke('get-audio-tracks-ffprobe', filePath);
             if (this.currentVideoPath !== filePath) return;
             if (!result.available || result.tracks.length === 0) return;
 
@@ -667,7 +665,7 @@ class VisionLumina {
 
     async openSubtitleDialog() {
         try {
-            const result = await ipcRenderer.invoke('show-open-dialog', {
+            const result = await window.vlApi.invoke('show-open-dialog', {
                 title: 'Select subtitle file',
                 filters: [
                     { name: 'Subtitles', extensions: ['vtt', 'srt'] },
@@ -686,9 +684,8 @@ class VisionLumina {
     }
 
     loadSubtitleFile(filePath) {
-        const fs = require('fs');
         try {
-            const content = fs.readFileSync(filePath, 'utf-8');
+            const content = window.vlApi.readFileSync(filePath, 'utf-8');
             const ext = filePath.split('.').pop().toLowerCase();
 
             let vttContent = content;
@@ -911,7 +908,7 @@ class VisionLumina {
         // Очищаем внешний аудио-элемент предыдущего файла
         this._cleanupExternalAudio();
         if (this._externalAudioPath) {
-            ipcRenderer.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
+            window.vlApi.invoke('cleanup-temp-audio', this._externalAudioPath).catch(() => {});
             this._externalAudioPath = null;
         }
 
@@ -947,7 +944,7 @@ class VisionLumina {
         try {
             // Extract directory path
             const dirPath = currentFilePath.replace(/[\\/][^\\/]+$/, '');
-            const files = await ipcRenderer.invoke('get-directory-files', dirPath);
+            const files = await window.vlApi.invoke('get-directory-files', dirPath);
 
             this.playlist = files;
             const normalized = f => f.replace(/\\/g, '/').toLowerCase();
@@ -985,12 +982,11 @@ class VisionLumina {
             return;
         }
 
-        const fs = require('fs');
         const chapterFile = this.currentVideoPath.replace(/\.[^.]+$/, '.chapters.vtt');
 
         try {
-            if (fs.existsSync(chapterFile)) {
-                const content = fs.readFileSync(chapterFile, 'utf-8');
+            if (window.vlApi.existsSync(chapterFile)) {
+                const content = window.vlApi.readFileSync(chapterFile, 'utf-8');
                 this.chapters = this.parseVttChapters(content);
                 this.chapterBtn.classList.remove('hidden');
                 this.updateCurrentChapter();
@@ -1051,11 +1047,11 @@ class VisionLumina {
     // ─── Electron Integration ─────────────────────────────────────────────────
 
     setupElectronIntegration() {
-        ipcRenderer.on('load-video', (event, videoPath) => {
+        window.vlApi.on('load-video', (videoPath) => {
             this.loadVideoFile(videoPath);
         });
 
-        ipcRenderer.invoke('get-video-path').then(videoPath => {
+        window.vlApi.invoke('get-video-path').then(videoPath => {
             if (videoPath) {
                 this.loadVideoFile(videoPath);
             }
@@ -1277,14 +1273,7 @@ class VisionLumina {
         }
     }
 
-    closeAllSubmenus() {
-        this.sleepTimerSubmenu.classList.add('hidden');
-        this.speedSubmenu.classList.add('hidden');
-        this.qualitySubmenu.classList.add('hidden');
-        this.audioSubmenu.classList.add('hidden');
-        this.subtitlesSubmenu.classList.add('hidden');
-        this.currentSubmenu = null;
-    }
+    // removed duplicate closeAllSubmenus
 
     closeAllMenus() {
         this.closeSettings();
@@ -1850,8 +1839,6 @@ class VisionLumina {
     // ─── Context Menu ─────────────────────────────────────────────────────────
 
     setupContextMenu() {
-        const { clipboard, shell } = require('electron');
-
         // Show custom context menu on right-click in player
         this.playerContainer.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -1863,7 +1850,7 @@ class VisionLumina {
         if (ctxCopy) {
             ctxCopy.addEventListener('click', () => {
                 const ts = this.formatTime(this.video.currentTime || 0);
-                clipboard.writeText(ts);
+                window.vlApi.writeText(ts);
                 this.hideContextMenu();
             });
         }
@@ -1873,7 +1860,7 @@ class VisionLumina {
         if (ctxExplorer) {
             ctxExplorer.addEventListener('click', () => {
                 if (this.currentVideoPath) {
-                    shell.showItemInFolder(this.currentVideoPath);
+                    window.vlApi.showItemInFolder(this.currentVideoPath);
                 }
                 this.hideContextMenu();
             });
@@ -2212,8 +2199,7 @@ class HomeLibrary {
         } else {
             if (empty) empty.classList.add('hidden');
             grid.classList.remove('hidden');
-            const path = require('path');
-            favs.forEach((fp, i) => grid.appendChild(this.buildCard(fp, path, i)));
+            favs.forEach((fp, i) => grid.appendChild(this.buildCard(fp, i)));
             this.processThumbnailQueue();
         }
     }
@@ -2383,9 +2369,8 @@ class HomeLibrary {
         } else {
             if (emptyEl) emptyEl.classList.add('hidden');
             grid.classList.remove('hidden');
-            const path = require('path');
             pl.files.forEach((fp, i) => {
-                const card = this.buildCard(fp, path, i);
+                const card = this.buildCard(fp, i);
                 // Add remove-from-playlist button inside card-actions
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'card-fav-btn';
@@ -2418,7 +2403,7 @@ class HomeLibrary {
         };
         if (addBtn) addBtn.onclick = async () => {
             try {
-                const result = await ipcRenderer.invoke('show-open-dialog', {
+                const result = await window.vlApi.invoke('show-open-dialog', {
                     title: t('playlists.add_videos'),
                     filters: [
                         { name: 'Video Files', extensions: ['mp4','avi','mkv','mov','wmv','flv','webm','m4v','3gp','ogv','ts','mts'] },
@@ -2580,14 +2565,12 @@ class HomeLibrary {
         const el = document.getElementById('diskUsageText');
         if (!el || this.dirs.length === 0) return;
         try {
-            const fs = require('fs');
-            const path = require('path');
             const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
             let total = 0;
             for (const dir of this.dirs) {
-                const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
+                const files = this.getVideoFilesRecursive(dir, videoExt);
                 for (const fp of files) {
-                    try { total += fs.statSync(fp).size; } catch {}
+                    try { total += window.vlApi.statSync(fp).size; } catch {}
                 }
             }
             const gb = total / (1024 ** 3);
@@ -2640,8 +2623,7 @@ class HomeLibrary {
         } else {
             if (empty) empty.classList.add('hidden');
             grid.classList.remove('hidden');
-            const path = require('path');
-            recent.forEach((fp, i) => grid.appendChild(this.buildCard(fp, path, i)));
+            recent.forEach((fp, i) => grid.appendChild(this.buildCard(fp, i)));
         }
     }
 
@@ -2660,19 +2642,18 @@ class HomeLibrary {
         } else {
             if (empty) empty.classList.add('hidden');
             grid.classList.remove('hidden');
-            const fs   = require('fs');
-            const path = require('path');
             const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
             this.dirs.forEach(dir => {
-                const count = this.getVideoFilesRecursive(dir, fs, path, videoExt).length;
-                grid.appendChild(this.buildFolderCard(dir, count, path));
+                const count = this.getVideoFilesRecursive(dir, videoExt).length;
+                grid.appendChild(this.buildFolderCard(dir, count));
             });
         }
     }
 
-    buildFolderCard(dir, fileCount, path) {
+    buildFolderCard(dir, fileCount) {
         const card = document.createElement('div');
         card.className = 'folder-card';
+        const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         card.innerHTML = `
             <div class="folder-card-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -2680,8 +2661,8 @@ class HomeLibrary {
                 </svg>
             </div>
             <div class="folder-card-body">
-                <div class="folder-card-name">${path.basename(dir) || dir}</div>
-                <div class="folder-card-path">${dir}</div>
+                <div class="folder-card-name">${esc(window.vlApi.pathBasename(dir) || dir)}</div>
+                <div class="folder-card-path">${esc(dir)}</div>
             </div>
             <div class="folder-card-footer">
                 <span class="folder-card-count">${window.VLi18n.t('dynamic.videos', { n: fileCount })}</span>
@@ -2694,8 +2675,6 @@ class HomeLibrary {
     // ── Statistics view ───────────────────────────────────────────────────────
 
     renderStatistics() {
-        const fs       = require('fs');
-        const path     = require('path');
         const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
         const now      = Date.now();
         const day30    = 30 * 24 * 60 * 60 * 1000;
@@ -2706,10 +2685,10 @@ class HomeLibrary {
         const folderStats = [];
 
         for (const dir of this.dirs) {
-            const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
+            const files = this.getVideoFilesRecursive(dir, videoExt);
             let folderSize = 0;
             for (const fp of files) {
-                try { folderSize += fs.statSync(fp).size; } catch {}
+                try { folderSize += window.vlApi.statSync(fp).size; } catch {}
             }
             totalVideos += files.length;
             totalSize   += folderSize;
@@ -2746,7 +2725,7 @@ class HomeLibrary {
                     const row = document.createElement('div');
                     row.className = 'stats-bar-row';
                     row.innerHTML = `
-                        <div class="stats-bar-label" title="${dir}">${path.basename(dir) || dir}</div>
+                        <div class="stats-bar-label" title="${this._escHtml(dir)}">${this._escHtml(window.vlApi.pathBasename(dir) || dir)}</div>
                         <div class="stats-bar-track">
                             <div class="stats-bar-fill" style="width:0%"></div>
                         </div>
@@ -2780,7 +2759,7 @@ class HomeLibrary {
         } else {
             if (recentEmpty) recentEmpty.classList.add('hidden');
             recentGrid.classList.remove('hidden');
-            recent.forEach((fp, i) => recentGrid.appendChild(this.buildCard(fp, path, i)));
+            recent.forEach((fp, i) => recentGrid.appendChild(this.buildCard(fp, i)));
         }
     }
 
@@ -2903,9 +2882,8 @@ class HomeLibrary {
     }
 
     async promptAddFolder() {
-        const { ipcRenderer } = require('electron');
         try {
-            const result = await ipcRenderer.invoke('show-directory-dialog');
+            const result = await window.vlApi.invoke('show-directory-dialog');
             if (!result.canceled && result.filePaths.length > 0) {
                 const dir = result.filePaths[0];
                 if (!this.dirs.includes(dir)) {
@@ -2921,9 +2899,8 @@ class HomeLibrary {
     }
 
     async promptOpenFile() {
-        const { ipcRenderer } = require('electron');
         try {
-            const result = await ipcRenderer.invoke('show-open-dialog', {
+            const result = await window.vlApi.invoke('show-open-dialog', {
                 title: 'Open video file',
                 filters: [
                     { name: 'Video', extensions: ['mp4','avi','mkv','mov','wmv','flv','webm','m4v','3gp','ogv','ts','mts'] },
@@ -2959,20 +2936,18 @@ class HomeLibrary {
         this.sectionsEl.classList.remove('hidden');
         this.sectionsEl.innerHTML = '';
 
-        const fs   = require('fs');
-        const path = require('path');
         const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
 
         for (const dir of this.dirs) {
-            const files = this.getVideoFilesRecursive(dir, fs, path, videoExt);
+            const files = this.getVideoFilesRecursive(dir, videoExt);
             if (files.length === 0) continue;
-            this.sectionsEl.appendChild(this.buildSection(dir, files, path));
+            this.sectionsEl.appendChild(this.buildSection(dir, files));
         }
 
         this.processThumbnailQueue();
     }
 
-    buildSection(dir, files, path) {
+    buildSection(dir, files) {
         const section = document.createElement('div');
         section.className = 'library-section';
 
@@ -2981,7 +2956,7 @@ class HomeLibrary {
 
         const title = document.createElement('div');
         title.className = 'library-section-title';
-        title.textContent = path.basename(dir) || dir;
+        title.textContent = window.vlApi.pathBasename(dir) || dir;
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'library-section-remove';
@@ -3000,7 +2975,7 @@ class HomeLibrary {
         grid.className = 'library-grid';
 
         files.forEach((filePath, i) => {
-            grid.appendChild(this.buildCard(filePath, path, i));
+            grid.appendChild(this.buildCard(filePath, i));
         });
 
         section.appendChild(header);
@@ -3008,7 +2983,7 @@ class HomeLibrary {
         return section;
     }
 
-    buildCard(filePath, path, cardIndex = 0) {
+    buildCard(filePath, cardIndex = 0) {
         const card = document.createElement('div');
         card.className = 'library-card';
         card.title = filePath;
@@ -3067,7 +3042,7 @@ class HomeLibrary {
 
         const nameEl = document.createElement('div');
         nameEl.className = 'library-card-name';
-        nameEl.textContent = path.basename(filePath, path.extname(filePath));
+        nameEl.textContent = window.vlApi.pathBasename(filePath, window.vlApi.pathExtname(filePath));
 
         const durEl = document.createElement('div');
         durEl.className = 'library-card-duration';
@@ -3095,19 +3070,19 @@ class HomeLibrary {
 
     // ── Recursive File Scan ───────────────────────────────────────────────────
 
-    getVideoFilesRecursive(dir, fs, path, videoExt, depth = 0) {
+    getVideoFilesRecursive(dir, videoExt, depth = 0) {
         if (depth > 6) return []; // guard against symlink loops / very deep trees
         let results = [];
         try {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            const entries = window.vlApi.readdirSync(dir);
             for (const entry of entries) {
                 // Skip hidden folders (starting with dot)
                 if (entry.name.startsWith('.')) continue;
-                const fullPath = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    const sub = this.getVideoFilesRecursive(fullPath, fs, path, videoExt, depth + 1);
+                const fullPath = window.vlApi.pathJoin(dir, entry.name);
+                if (entry.isDirectory) {
+                    const sub = this.getVideoFilesRecursive(fullPath, videoExt, depth + 1);
                     results = results.concat(sub);
-                } else if (entry.isFile() && videoExt.test(entry.name)) {
+                } else if (entry.isFile && videoExt.test(entry.name)) {
                     results.push(fullPath);
                 }
             }
