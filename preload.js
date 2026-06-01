@@ -40,4 +40,9 @@ contextBridge.exposeInMainWorld('vlApi', {
     pathJoin: (...args) => path.join(...args),
     pathResolve: (p) => path.resolve(p),
     pathDirname: (p) => path.dirname(p),
+
+    // Watch statistics
+    startWatchSession: (filePath) => ipcRenderer.invoke('start-watch-session', filePath),
+    trackWatchTime: (filePath, seconds) => ipcRenderer.invoke('track-watch-time', { filePath, seconds }),
+    getWatchStats: () => ipcRenderer.invoke('get-watch-stats'),
 });

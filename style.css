@@ -1969,6 +1969,30 @@ select.form-control {
   color: #FDB172;
 }
 
+.stat-card-icon--red {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #FCA5A5;
+}
+
+.stat-card-icon--green {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #86EFAC;
+}
+
+.stat-card-icon--yellow {
+  background: rgba(234, 179, 8, 0.18);
+  border: 1px solid rgba(234, 179, 8, 0.28);
+  color: #FDE047;
+}
+
+.stat-card-icon--indigo {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  color: #A5B4FC;
+}
+
 .stat-card-value {
   font-size: 26px;
   font-weight: 700;

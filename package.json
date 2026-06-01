@@ -1,7 +1,7 @@
 {
   "name": "vision-lumina-player",
   "productName": "Vision Lumina",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Video Player",
   "author": "ZeFair Network",
   "main": "main.js",

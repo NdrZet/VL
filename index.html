@@ -407,6 +407,66 @@
                         <div class="stats-bars" id="statsFolderBars"></div>
                     </div>
 
+                    <!-- Watch stats cards -->
+                    <div class="stats-cards" id="watchStatsCards" style="margin-top:24px">
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--red">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statTotalWatchTime">—</div>
+                                <div class="stat-card-label" data-i18n="stats.total_watch_time">Total watch time</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--green">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statTotalSessions">—</div>
+                                <div class="stat-card-label" data-i18n="stats.total_sessions">Total sessions</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--yellow">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statDailyAvg">—</div>
+                                <div class="stat-card-label" data-i18n="stats.daily_avg">Daily average</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-icon stat-card-icon--indigo">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="stat-card-body">
+                                <div class="stat-card-value" id="statCurrentStreak">—</div>
+                                <div class="stat-card-label" data-i18n="stats.current_streak">Current streak</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Most watched -->
+                    <div class="stats-section" id="statsMostWatchedSection">
+                        <h3 class="stats-section-title" data-i18n="stats.most_watched">Most watched</h3>
+                        <div class="stats-empty hidden" id="statsMostWatchedEmpty" data-i18n="stats.no_watch_data">No watch data yet</div>
+                        <div class="stats-bars" id="statsMostWatchedBars"></div>
+                    </div>
+
                     <!-- Recently watched -->
                     <div class="stats-section" id="statsRecentSection">
                         <h3 class="stats-section-title" data-i18n="stats.recently_watched">Recently watched</h3>

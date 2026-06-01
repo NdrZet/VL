@@ -403,3 +403,53 @@ ipcMain.handle('get-audio-tracks-ffprobe', (event, filePath) => {
 
     return { available: false, method: 'none', tracks: [] };
 });
+
+// ── Watch Statistics ────────────────────────────────────────────────────────
+
+const statsPath = path.join(app.getPath('userData'), 'watch-stats.json');
+
+function loadStats() {
+    try {
+        return JSON.parse(fs.readFileSync(statsPath, 'utf-8'));
+    } catch {
+        return { totalSeconds: 0, daily: {}, files: {}, firstWatchDate: null, lastWatchDate: null };
+    }
+}
+
+function saveStats(stats) {
+    try {
+        fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2));
+    } catch {}
+}
+
+ipcMain.handle('start-watch-session', (event, filePath) => {
+    const stats = loadStats();
+    const today = new Date().toISOString().slice(0, 10);
+    if (!stats.files[filePath]) {
+        stats.files[filePath] = { totalSeconds: 0, sessions: 0, lastWatched: null };
+    }
+    stats.files[filePath].sessions += 1;
+    stats.files[filePath].lastWatched = new Date().toISOString();
+    if (!stats.firstWatchDate) stats.firstWatchDate = today;
+    stats.lastWatchDate = today;
+    saveStats(stats);
+});
+
+ipcMain.handle('track-watch-time', (event, { filePath, seconds }) => {
+    const stats = loadStats();
+    const today = new Date().toISOString().slice(0, 10);
+    stats.totalSeconds = (stats.totalSeconds || 0) + seconds;
+    stats.daily[today] = (stats.daily[today] || 0) + seconds;
+    if (!stats.files[filePath]) {
+        stats.files[filePath] = { totalSeconds: 0, sessions: 0, lastWatched: null };
+    }
+    stats.files[filePath].totalSeconds += seconds;
+    stats.files[filePath].lastWatched = new Date().toISOString();
+    if (!stats.firstWatchDate) stats.firstWatchDate = today;
+    stats.lastWatchDate = today;
+    saveStats(stats);
+});
+
+ipcMain.handle('get-watch-stats', () => {
+    return loadStats();
+});

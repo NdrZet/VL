@@ -140,6 +140,11 @@ class VisionLumina {
         this._externalAudioPath = null;
         this._audioReadyPromise = null;
 
+        // Watch statistics
+        this._watchSessionStart = 0;
+        this._watchSessionFile = null;
+        this._watchStatsTimer = null;
+
         this.init();
     }
 
@@ -157,6 +162,7 @@ class VisionLumina {
         this.setupHomeButton();
         this.setupMiniPlayer();
         this.setupZoomPan();
+        this.setupWatchStats();
         this.library = new HomeLibrary(this);
         console.log('Vision Lumina initialized successfully');
     }
@@ -905,6 +911,7 @@ class VisionLumina {
     async loadVideoFile(filePath) {
         if (!filePath) return;
 
+        this._endWatchSession();
         this.currentVideoPath = filePath;
         this.resetVideoTransform();
 
@@ -2162,6 +2169,40 @@ class VisionLumina {
         this.videoPanY = 0;
         this.applyVideoTransform();
     }
+
+    // ─── Watch Statistics ────────────────────────────────────────────────────
+
+    setupWatchStats() {
+        this.video.addEventListener('play', () => this._startWatchSession());
+        this.video.addEventListener('pause', () => this._endWatchSession());
+        this.video.addEventListener('ended', () => this._endWatchSession());
+
+        window.addEventListener('beforeunload', () => this._endWatchSession());
+
+        // Flush every 5 sec so crash/close doesn’t lose much
+        this._watchStatsTimer = setInterval(() => this._flushWatchTime(), 5000);
+    }
+
+    _startWatchSession() {
+        if (!this.currentVideoPath || this.video.paused) return;
+        this._watchSessionFile = this.currentVideoPath;
+        this._watchSessionStart = Date.now();
+        window.vlApi.startWatchSession(this.currentVideoPath).catch(() => {});
+    }
+
+    _endWatchSession() {
+        this._flushWatchTime();
+        this._watchSessionFile = null;
+        this._watchSessionStart = 0;
+    }
+
+    _flushWatchTime() {
+        if (!this._watchSessionFile || !this._watchSessionStart) return;
+        const elapsed = Math.round((Date.now() - this._watchSessionStart) / 1000);
+        if (elapsed < 1) return;
+        window.vlApi.trackWatchTime(this._watchSessionFile, elapsed).catch(() => {});
+        this._watchSessionStart = Date.now();
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════ HomeLibrary
@@ -2609,7 +2650,7 @@ class HomeLibrary {
 
     // ── Sidebar navigation ────────────────────────────────────────────────────
 
-    switchView(view) {
+    async switchView(view) {
         this.currentView = view;
         document.querySelectorAll('.sidebar-item[data-view]').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.view === view);
@@ -2622,7 +2663,7 @@ class HomeLibrary {
         if (view === 'folders')    this.renderFoldersView();
         if (view === 'favorites')  this.renderFavoritesView();
         if (view === 'playlists')  this.renderPlaylistsView();
-        if (view === 'statistics') this.renderStatistics();
+        if (view === 'statistics') await this.renderStatistics();
         if (view === 'settings')   this.renderSettingsPage();
     }
 
@@ -2746,7 +2787,7 @@ class HomeLibrary {
 
     // ── Statistics view ───────────────────────────────────────────────────────
 
-    renderStatistics() {
+    async renderStatistics() {
         const videoExt = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v|3gp|ogv|ts|mts)$/i;
         const now      = Date.now();
         const day30    = 30 * 24 * 60 * 60 * 1000;
@@ -2832,6 +2873,90 @@ class HomeLibrary {
             if (recentEmpty) recentEmpty.classList.add('hidden');
             recentGrid.classList.remove('hidden');
             recent.forEach((fp, i) => recentGrid.appendChild(this.buildCard(fp, i)));
+        }
+
+        // ── Watch statistics (async) ───────────────────────────────────────
+        try {
+            const wStats = await window.vlApi.getWatchStats();
+            const fmtTime = secs => {
+                const h = Math.floor(secs / 3600);
+                const m = Math.floor((secs % 3600) / 60);
+                if (h > 0) return `${h}h ${m}m`;
+                return `${m}m`;
+            };
+
+            const totalSeconds = wStats.totalSeconds || 0;
+            const fileEntries = Object.entries(wStats.files || {});
+            const totalSessions = fileEntries.reduce((sum, [,d]) => sum + (d.sessions || 0), 0);
+
+            // Daily average
+            const daily = wStats.daily || {};
+            const dayKeys = Object.keys(daily);
+            let dailyAvg = 0;
+            if (dayKeys.length > 0) {
+                dailyAvg = Math.round(totalSeconds / dayKeys.length);
+            }
+
+            // Current streak
+            let streak = 0;
+            if (dayKeys.length > 0) {
+                const sorted = dayKeys.slice().sort();
+                const today = new Date().toISOString().slice(0, 10);
+                let check = new Date(today);
+                while (true) {
+                    const key = check.toISOString().slice(0, 10);
+                    if (daily[key]) {
+                        streak++;
+                        check.setDate(check.getDate() - 1);
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            setVal('statTotalWatchTime', totalSeconds > 0 ? fmtTime(totalSeconds) : '—');
+            setVal('statTotalSessions', totalSessions || '0');
+            setVal('statDailyAvg', dailyAvg > 0 ? fmtTime(dailyAvg) : '—');
+            setVal('statCurrentStreak', streak > 0 ? `${streak} ${window.VLi18n ? window.VLi18n.t('dynamic.days', {n: streak}) : 'days'}` : '—');
+
+            // Most watched bars
+            const mwBars = document.getElementById('statsMostWatchedBars');
+            const mwSection = document.getElementById('statsMostWatchedSection');
+            const mwEmpty = document.getElementById('statsMostWatchedEmpty');
+            if (mwBars) {
+                mwBars.innerHTML = '';
+                const top = fileEntries
+                    .filter(([,d]) => d.totalSeconds > 0)
+                    .sort(([,a], [,b]) => b.totalSeconds - a.totalSeconds)
+                    .slice(0, 10);
+                if (top.length === 0) {
+                    if (mwSection) mwSection.style.display = 'none';
+                    if (mwEmpty) mwEmpty.classList.remove('hidden');
+                } else {
+                    if (mwSection) mwSection.style.display = '';
+                    if (mwEmpty) mwEmpty.classList.add('hidden');
+                    const maxSec = Math.max(...top.map(([,d]) => d.totalSeconds), 1);
+                    top.forEach(([fp, d]) => {
+                        const pct = Math.round((d.totalSeconds / maxSec) * 100);
+                        const row = document.createElement('div');
+                        row.className = 'stats-bar-row';
+                        row.innerHTML = `
+                            <div class="stats-bar-label" title="${this._escHtml(fp)}">${this._escHtml(window.vlApi.pathBasename(fp))}</div>
+                            <div class="stats-bar-track">
+                                <div class="stats-bar-fill" style="width:0%"></div>
+                            </div>
+                            <div class="stats-bar-count">${fmtTime(d.totalSeconds)} · ${d.sessions || 0}</div>`;
+                        mwBars.appendChild(row);
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                row.querySelector('.stats-bar-fill').style.width = `${pct}%`;
+                            });
+                        });
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load watch stats:', e);
         }
     }
 

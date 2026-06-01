@@ -24,7 +24,7 @@ window.VLi18n = (() => {
             'sidebar.folders': 'Folders',
             'sidebar.statistics': 'Statistics',
             'sidebar.settings': 'Settings',
-            'sidebar.version': 'Vision Lumina v1.4',
+            'sidebar.version': 'Vision Lumina v1.7',
 
             // Library view — empty state
             'library.empty_title': 'Your library is empty',
@@ -78,6 +78,12 @@ window.VLi18n = (() => {
             'stats.breakdown': 'Library breakdown',
             'stats.recently_watched': 'Recently watched',
             'stats.no_history': 'No watch history yet',
+            'stats.total_watch_time': 'Total watch time',
+            'stats.total_sessions': 'Total sessions',
+            'stats.daily_avg': 'Daily average',
+            'stats.current_streak': 'Current streak',
+            'stats.most_watched': 'Most watched',
+            'stats.no_watch_data': 'No watch data yet',
 
             // Settings view
             'settings.title': 'Settings',
@@ -110,7 +116,7 @@ window.VLi18n = (() => {
             'settings.language_desc': 'Choose the display language for the app',
 
             'settings.group_about': 'About',
-            'settings.about_version': 'Version 1.4.0',
+            'settings.about_version': 'Version 1.7.0',
             'settings.about_credits': 'Made by ZeFair Network',
             'settings.about_tech': 'Electron + HTML5 Video',
 
@@ -151,6 +157,7 @@ window.VLi18n = (() => {
             'dynamic.history_items': ['{n} video in history', '{n} videos in history'],
             'dynamic.history_empty': 'History is empty',
             'dynamic.pl_videos': ['{n} video', '{n} videos'],
+            'dynamic.days': ['{n} day', '{n} days'],
         },
 
         ru: {
@@ -169,7 +176,7 @@ window.VLi18n = (() => {
             'sidebar.folders': 'Папки',
             'sidebar.statistics': 'Статистика',
             'sidebar.settings': 'Настройки',
-            'sidebar.version': 'Vision Lumina v1.4',
+            'sidebar.version': 'Vision Lumina v1.7',
 
             // Library view — empty state
             'library.empty_title': 'Библиотека пуста',
@@ -223,6 +230,12 @@ window.VLi18n = (() => {
             'stats.breakdown': 'Разбивка по папкам',
             'stats.recently_watched': 'Недавно просмотренные',
             'stats.no_history': 'История просмотров пуста',
+            'stats.total_watch_time': 'Общее время просмотра',
+            'stats.total_sessions': 'Всего сессий',
+            'stats.daily_avg': 'Среднее в день',
+            'stats.current_streak': 'Текущая серия',
+            'stats.most_watched': 'Самые просматриваемые',
+            'stats.no_watch_data': 'Нет данных о просмотрах',
 
             // Settings view
             'settings.title': 'Настройки',
@@ -255,7 +268,7 @@ window.VLi18n = (() => {
             'settings.language_desc': 'Выберите язык отображения приложения',
 
             'settings.group_about': 'О программе',
-            'settings.about_version': 'Версия 1.4.0',
+            'settings.about_version': 'Версия 1.7.0',
             'settings.about_credits': 'Разработано ZeFair Network',
             'settings.about_tech': 'Electron + HTML5 Video',
 
@@ -296,6 +309,7 @@ window.VLi18n = (() => {
             'dynamic.history_items': ['{n} видео в истории', '{n} видео в истории', '{n} видео в истории'],
             'dynamic.history_empty': 'История пуста',
             'dynamic.pl_videos': ['{n} видео', '{n} видео', '{n} видео'],
+            'dynamic.days': ['{n} день', '{n} дня', '{n} дней'],
         }
     };
 
