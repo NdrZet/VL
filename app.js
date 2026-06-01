@@ -2,6 +2,7 @@ class VisionLumina {
     constructor() {
         // Core elements
         this.video = document.getElementById('videoPlayer');
+        this.videoWrapper = document.getElementById('videoWrapper');
         this.controlBar = document.getElementById('controlBar');
         this.settingsMenu = document.getElementById('settingsMenu');
         this.playerContainer = document.querySelector('.player-container');
@@ -155,6 +156,7 @@ class VisionLumina {
         this.setupFramePreview();
         this.setupHomeButton();
         this.setupMiniPlayer();
+        this.setupZoomPan();
         this.library = new HomeLibrary(this);
         console.log('Vision Lumina initialized successfully');
     }
@@ -904,6 +906,7 @@ class VisionLumina {
         if (!filePath) return;
 
         this.currentVideoPath = filePath;
+        this.resetVideoTransform();
 
         // Очищаем внешний аудио-элемент предыдущего файла
         this._cleanupExternalAudio();
@@ -2089,6 +2092,75 @@ class VisionLumina {
             return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
         return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // ─── Zoom & Pan ──────────────────────────────────────────────────────────
+
+    setupZoomPan() {
+        if (!this.videoWrapper) return;
+
+        this.videoScale = 1;
+        this.videoPanX = 0;
+        this.videoPanY = 0;
+        this.isPanning = false;
+        this.panStart = { x: 0, y: 0 };
+        this.panOrigin = { x: 0, y: 0 };
+
+        this.videoWrapper.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.max(1, Math.min(5, this.videoScale * delta));
+            if (newScale === 1) {
+                this.videoPanX = 0;
+                this.videoPanY = 0;
+            }
+            this.videoScale = newScale;
+            this.applyVideoTransform();
+        }, { passive: false });
+
+        this.videoWrapper.addEventListener('mousedown', (e) => {
+            if (this.videoScale > 1 && e.button === 0) {
+                this.isPanning = true;
+                this.panStart = { x: e.clientX, y: e.clientY };
+                this.panOrigin = { x: this.videoPanX, y: this.videoPanY };
+                this.videoWrapper.style.cursor = 'grabbing';
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!this.isPanning) return;
+            const dx = e.clientX - this.panStart.x;
+            const dy = e.clientY - this.panStart.y;
+            this.videoPanX = this.panOrigin.x + dx;
+            this.videoPanY = this.panOrigin.y + dy;
+            this.applyVideoTransform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.isPanning) {
+                this.isPanning = false;
+                this.videoWrapper.style.cursor = this.videoScale > 1 ? 'grab' : 'default';
+            }
+        });
+
+        this.videoWrapper.addEventListener('dblclick', (e) => {
+            if (e.target.closest('#controlBar')) return;
+            this.resetVideoTransform();
+        });
+    }
+
+    applyVideoTransform() {
+        this.video.style.transform = `translate(${this.videoPanX}px, ${this.videoPanY}px) scale(${this.videoScale})`;
+        if (this.videoWrapper) {
+            this.videoWrapper.style.cursor = this.videoScale > 1 ? 'grab' : 'default';
+        }
+    }
+
+    resetVideoTransform() {
+        this.videoScale = 1;
+        this.videoPanX = 0;
+        this.videoPanY = 0;
+        this.applyVideoTransform();
     }
 }
 

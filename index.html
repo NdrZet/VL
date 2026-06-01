@@ -579,10 +579,12 @@
         <!-- Ambient mode canvas (behind video) -->
         <canvas id="ambientCanvas"></canvas>
 
-        <!-- Video Element -->
-        <video id="videoPlayer" preload="metadata">
-            <track id="subtitleTrack" kind="subtitles" default>
-        </video>
+        <!-- Video Wrapper (zoom/pan container) -->
+        <div id="videoWrapper" class="video-wrapper">
+            <video id="videoPlayer" preload="metadata">
+                <track id="subtitleTrack" kind="subtitles" default>
+            </video>
+        </div>
 
         <!-- Hidden preview video for frame extraction on progress bar hover -->
         <video id="previewVideo" preload="none" muted style="display:none" aria-hidden="true"></video>
