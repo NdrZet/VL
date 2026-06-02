@@ -1023,6 +1023,68 @@ select.form-control {
   transform: translateY(10px);
 }
 
+/* ── Watch Together ─────────────────────────────────────────────────────── */
+
+.wt-action-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wt-action-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.wt-action-btn--primary {
+  background: rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #A5B4FC;
+}
+
+.wt-action-btn--primary:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+.wt-action-btn--danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #FCA5A5;
+}
+
+.wt-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.wt-link-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+  margin-top: 4px;
+}
+
+.wt-link-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wt-link-btn--danger {
+  color: rgba(239, 68, 68, 0.7);
+}
+
+.wt-link-btn--danger:hover {
+  color: #FCA5A5;
+}
+
 .settings-item {
   display: flex;
   align-items: center;

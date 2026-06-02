@@ -45,4 +45,31 @@ contextBridge.exposeInMainWorld('vlApi', {
     startWatchSession: (filePath) => ipcRenderer.invoke('start-watch-session', filePath),
     trackWatchTime: (filePath, seconds) => ipcRenderer.invoke('track-watch-time', { filePath, seconds }),
     getWatchStats: () => ipcRenderer.invoke('get-watch-stats'),
+
+    // Watch Together
+    wtCreateRoom: (port) => ipcRenderer.invoke('wt-create-room', port),
+    wtCloseRoom: () => ipcRenderer.invoke('wt-close-room'),
+    wtJoinRoom: (address) => ipcRenderer.invoke('wt-join-room', address),
+    wtLeaveRoom: () => ipcRenderer.invoke('wt-leave-room'),
+    wtSend: (data) => ipcRenderer.invoke('wt-send', data),
+    onWtMessage: (callback) => {
+        const wrapper = (event, ...args) => callback(...args);
+        ipcRenderer.on('wt-message', wrapper);
+        return () => ipcRenderer.removeListener('wt-message', wrapper);
+    },
+    onWtStatus: (callback) => {
+        const wrapper = (event, ...args) => callback(...args);
+        ipcRenderer.on('wt-status', wrapper);
+        return () => ipcRenderer.removeListener('wt-status', wrapper);
+    },
+    onWtPeerJoined: (callback) => {
+        const wrapper = (event, ...args) => callback(...args);
+        ipcRenderer.on('wt-peer-joined', wrapper);
+        return () => ipcRenderer.removeListener('wt-peer-joined', wrapper);
+    },
+    onWtPeerLeft: (callback) => {
+        const wrapper = (event, ...args) => callback(...args);
+        ipcRenderer.on('wt-peer-left', wrapper);
+        return () => ipcRenderer.removeListener('wt-peer-left', wrapper);
+    },
 });

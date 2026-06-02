@@ -24,7 +24,7 @@ window.VLi18n = (() => {
             'sidebar.folders': 'Folders',
             'sidebar.statistics': 'Statistics',
             'sidebar.settings': 'Settings',
-            'sidebar.version': 'Vision Lumina v1.7',
+            'sidebar.version': 'Vision Lumina v2.0',
 
             // Library view — empty state
             'library.empty_title': 'Your library is empty',
@@ -116,7 +116,7 @@ window.VLi18n = (() => {
             'settings.language_desc': 'Choose the display language for the app',
 
             'settings.group_about': 'About',
-            'settings.about_version': 'Version 1.7.0',
+            'settings.about_version': 'Version 2.0.0',
             'settings.about_credits': 'Made by ZeFair Network',
             'settings.about_tech': 'Electron + HTML5 Video',
 
@@ -145,6 +145,21 @@ window.VLi18n = (() => {
             'player.drop_video': 'Drop video file to play',
             'player.copy_timestamp': 'Copy timestamp',
             'player.open_in_explorer': 'Open in Explorer',
+
+            // Watch Together
+            'wt.title': 'Watch Together',
+            'wt.create_room': 'Create Room',
+            'wt.your_room': 'Your room',
+            'wt.copy': 'Copy',
+            'wt.close_room': 'Close room',
+            'wt.join_room': 'Join Room',
+            'wt.join': 'Join',
+            'wt.leave': 'Leave',
+            'wt.disconnected': 'Disconnected',
+            'wt.status_host': 'Hosting',
+            'wt.status_connected': 'Connected',
+            'wt.no_peers': 'No peers',
+            'wt.peers': ['{n} peer', '{n} peers'],
 
             // Dynamic strings (used by t() in JS)
             'dynamic.files': ['{n} file', '{n} files'],
@@ -268,7 +283,7 @@ window.VLi18n = (() => {
             'settings.language_desc': 'Выберите язык отображения приложения',
 
             'settings.group_about': 'О программе',
-            'settings.about_version': 'Версия 1.7.0',
+            'settings.about_version': 'Версия 2.0.0',
             'settings.about_credits': 'Разработано ZeFair Network',
             'settings.about_tech': 'Electron + HTML5 Video',
 
@@ -297,6 +312,21 @@ window.VLi18n = (() => {
             'player.drop_video': 'Перетащите видеофайл',
             'player.copy_timestamp': 'Копировать метку времени',
             'player.open_in_explorer': 'Открыть в Проводнике',
+
+            // Watch Together
+            'wt.title': 'Совместный просмотр',
+            'wt.create_room': 'Создать комнату',
+            'wt.your_room': 'Ваша комната',
+            'wt.copy': 'Копировать',
+            'wt.close_room': 'Закрыть комнату',
+            'wt.join_room': 'Присоединиться к комнате',
+            'wt.join': 'Присоединиться',
+            'wt.leave': 'Покинуть',
+            'wt.disconnected': 'Отключено',
+            'wt.status_host': 'Хост',
+            'wt.status_connected': 'Подключено',
+            'wt.no_peers': 'Нет участников',
+            'wt.peers': ['{n} участник', '{n} участника', '{n} участников'],
 
             // Dynamic strings
             'dynamic.files': ['{n} файл', '{n} файла', '{n} файлов'],

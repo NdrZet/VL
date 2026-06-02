@@ -453,3 +453,182 @@ ipcMain.handle('track-watch-time', (event, { filePath, seconds }) => {
 ipcMain.handle('get-watch-stats', () => {
     return loadStats();
 });
+
+// ── Watch Together ──────────────────────────────────────────────────────────
+
+const { WebSocket } = require('ws');
+const os = require('os');
+
+let wtServer = null;
+let wtServerClients = new Map(); // id -> ws
+let wtClient = null;
+let wtClientId = generateId();
+
+function generateId() {
+    return Math.random().toString(36).slice(2, 10);
+}
+
+function getLocalIp() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
+function broadcastToClients(data, excludeId = null) {
+    const payload = JSON.stringify(data);
+    wtServerClients.forEach((ws, id) => {
+        if (id !== excludeId && ws.readyState === WebSocket.OPEN) {
+            ws.send(payload);
+        }
+    });
+}
+
+async function getPublicIp() {
+    try {
+        const res = await require('https').get('https://api.ipify.org?format=json', (r) => {
+            let data = '';
+            r.on('data', chunk => data += chunk);
+            r.on('end', () => { getPublicIp._cached = JSON.parse(data).ip; });
+        });
+        res.on('error', () => {});
+    } catch {}
+    return getPublicIp._cached || null;
+}
+
+ipcMain.handle('wt-create-room', async (event, preferredPort = 0) => {
+    if (wtServer) {
+        return { success: false, error: 'Room already active' };
+    }
+    try {
+        const portNum = preferredPort ? parseInt(preferredPort, 10) : 0;
+        wtServer = new WebSocket.Server({ port: portNum });
+        const port = wtServer.address().port;
+        const publicIp = await getPublicIp();
+
+        wtServer.on('connection', (ws) => {
+            const clientId = generateId();
+            wtServerClients.set(clientId, ws);
+
+            // Notify renderer about new peer
+            if (mainWindow) {
+                mainWindow.webContents.send('wt-peer-joined', { clientId });
+            }
+
+            ws.on('message', (raw) => {
+                try {
+                    const msg = JSON.parse(raw);
+                    // Broadcast to other clients and to host renderer
+                    broadcastToClients({ ...msg, _from: clientId }, clientId);
+                    if (mainWindow) {
+                        mainWindow.webContents.send('wt-message', { ...msg, _from: clientId });
+                    }
+                } catch {}
+            });
+
+            ws.on('close', () => {
+                wtServerClients.delete(clientId);
+                if (mainWindow) {
+                    mainWindow.webContents.send('wt-peer-left', { clientId });
+                }
+            });
+
+            ws.on('error', () => {
+                wtServerClients.delete(clientId);
+            });
+        });
+
+        wtServer.on('error', (err) => {
+            if (mainWindow) {
+                mainWindow.webContents.send('wt-status', { type: 'error', message: err.message });
+            }
+        });
+
+        return { success: true, port, hostIp: getLocalIp(), publicIp };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+ipcMain.handle('wt-close-room', () => {
+    if (wtServer) {
+        wtServerClients.forEach(ws => ws.close());
+        wtServerClients.clear();
+        wtServer.close();
+        wtServer = null;
+    }
+    return true;
+});
+
+ipcMain.handle('wt-join-room', async (event, address) => {
+    if (wtClient) {
+        return { success: false, error: 'Already connected' };
+    }
+    return new Promise((resolve) => {
+        try {
+            const url = address.startsWith('ws://') ? address : `ws://${address}`;
+            wtClient = new WebSocket(url);
+
+            wtClient.on('open', () => {
+                if (mainWindow) {
+                    mainWindow.webContents.send('wt-status', { type: 'connected' });
+                }
+                resolve({ success: true });
+            });
+
+            wtClient.on('message', (raw) => {
+                try {
+                    const msg = JSON.parse(raw);
+                    if (mainWindow) {
+                        mainWindow.webContents.send('wt-message', msg);
+                    }
+                } catch {}
+            });
+
+            wtClient.on('close', () => {
+                wtClient = null;
+                if (mainWindow) {
+                    mainWindow.webContents.send('wt-status', { type: 'disconnected' });
+                }
+            });
+
+            wtClient.on('error', (err) => {
+                wtClient = null;
+                if (mainWindow) {
+                    mainWindow.webContents.send('wt-status', { type: 'error', message: err.message });
+                }
+                resolve({ success: false, error: err.message });
+            });
+        } catch (err) {
+            wtClient = null;
+            resolve({ success: false, error: err.message });
+        }
+    });
+});
+
+ipcMain.handle('wt-leave-room', () => {
+    if (wtClient) {
+        wtClient.close();
+        wtClient = null;
+    }
+    return true;
+});
+
+ipcMain.handle('wt-send', (event, data) => {
+    const payload = JSON.stringify(data);
+    if (wtClient && wtClient.readyState === WebSocket.OPEN) {
+        wtClient.send(payload);
+        return true;
+    }
+    // If we are host, broadcast to all connected clients
+    if (wtServer) {
+        broadcastToClients(data);
+        return true;
+    }
+    return false;
+});

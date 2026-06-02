@@ -14,6 +14,7 @@ class VisionLumina {
         this.volumeBtn = document.getElementById('volumeBtn');
         this.ccBtn = document.getElementById('ccBtn');
         this.settingsBtn = document.getElementById('settingsBtn');
+        this.watchTogetherBtn = document.getElementById('watchTogetherBtn');
         this.pipBtn = document.getElementById('pipBtn');
         this.fullscreenBtn = document.getElementById('fullscreenBtn');
         this.chapterBtn = document.getElementById('chapterBtn');
@@ -163,6 +164,7 @@ class VisionLumina {
         this.setupMiniPlayer();
         this.setupZoomPan();
         this.setupWatchStats();
+        this.setupWatchTogether();
         this.library = new HomeLibrary(this);
         console.log('Vision Lumina initialized successfully');
     }
@@ -2202,6 +2204,255 @@ class VisionLumina {
         if (elapsed < 1) return;
         window.vlApi.trackWatchTime(this._watchSessionFile, elapsed).catch(() => {});
         this._watchSessionStart = Date.now();
+    }
+
+    // ─── Watch Together ──────────────────────────────────────────────────────
+
+    setupWatchTogether() {
+        this.watchTogetherPanel = document.getElementById('watchTogetherPanel');
+        this.wtCreateBtn = document.getElementById('wtCreateBtn');
+        this.wtPortInput = document.getElementById('wtPortInput');
+        this.wtHostInfo = document.getElementById('wtHostInfo');
+        this.wtHostAddress = document.getElementById('wtHostAddress');
+        this.wtPublicAddressSection = document.getElementById('wtPublicAddressSection');
+        this.wtPublicAddress = document.getElementById('wtPublicAddress');
+        this.wtCopyAddressBtn = document.getElementById('wtCopyAddressBtn');
+        this.wtCloseRoomBtn = document.getElementById('wtCloseRoomBtn');
+        this.wtJoinBtn = document.getElementById('wtJoinBtn');
+        this.wtLeaveBtn = document.getElementById('wtLeaveBtn');
+        this.wtJoinInput = document.getElementById('wtJoinInput');
+        this.wtStatusDot = document.getElementById('wtStatusDot');
+        this.wtStatusText = document.getElementById('wtStatusText');
+        this.wtPeersList = document.getElementById('wtPeersList');
+
+        this._wtPeers = new Set();
+        this._wtIsRemoteUpdate = false;
+        this._wtSyncTimer = null;
+
+        // Toggle panel
+        if (this.watchTogetherBtn) {
+            this.watchTogetherBtn.addEventListener('click', () => {
+                this.toggleWatchTogetherPanel();
+            });
+        }
+
+        // Create room
+        if (this.wtCreateBtn) {
+            this.wtCreateBtn.addEventListener('click', () => this.wtCreateRoom());
+        }
+        if (this.wtCloseRoomBtn) {
+            this.wtCloseRoomBtn.addEventListener('click', () => this.wtCloseRoom());
+        }
+        if (this.wtCopyAddressBtn) {
+            this.wtCopyAddressBtn.addEventListener('click', () => {
+                const addr = this.wtPublicAddress.textContent !== '—' ? this.wtPublicAddress.textContent : this.wtHostAddress.textContent;
+                if (addr && addr !== '—') {
+                    window.vlApi.writeText(addr);
+                }
+            });
+        }
+
+        // Join / Leave
+        if (this.wtJoinBtn) {
+            this.wtJoinBtn.addEventListener('click', () => this.wtJoinRoom());
+        }
+        if (this.wtLeaveBtn) {
+            this.wtLeaveBtn.addEventListener('click', () => this.wtLeaveRoom());
+        }
+
+        // Listen for main-process events
+        this._wtUnsubMessage = window.vlApi.onWtMessage((msg) => this.wtOnMessage(msg));
+        this._wtUnsubStatus = window.vlApi.onWtStatus((status) => this.wtOnStatus(status));
+        this._wtUnsubPeerJoined = window.vlApi.onWtPeerJoined((data) => {
+            this._wtPeers.add(data.clientId);
+            this.wtUpdatePeersUI();
+        });
+        this._wtUnsubPeerLeft = window.vlApi.onWtPeerLeft((data) => {
+            this._wtPeers.delete(data.clientId);
+            this.wtUpdatePeersUI();
+        });
+
+        // Sync video events -> send to network
+        this._wtBindVideoEvents();
+    }
+
+    toggleWatchTogetherPanel() {
+        if (!this.watchTogetherPanel) return;
+        const isHidden = this.watchTogetherPanel.classList.contains('hidden');
+        // Close settings if open
+        if (isHidden && this.settingsOpen) {
+            this.closeSettingsMenu();
+        }
+        this.watchTogetherPanel.classList.toggle('hidden', !isHidden);
+    }
+
+    closeWatchTogetherPanel() {
+        if (this.watchTogetherPanel) {
+            this.watchTogetherPanel.classList.add('hidden');
+        }
+    }
+
+    async wtCreateRoom() {
+        const port = this.wtPortInput.value.trim();
+        const result = await window.vlApi.wtCreateRoom(port || 0);
+        if (result.success) {
+            this.wtHostAddress.textContent = `${result.hostIp}:${result.port}`;
+            if (result.publicIp) {
+                this.wtPublicAddress.textContent = `${result.publicIp}:${result.port}`;
+                this.wtPublicAddressSection.classList.remove('hidden');
+            }
+            this.wtHostInfo.classList.remove('hidden');
+            this.wtCreateBtn.classList.add('hidden');
+            this.wtPortInput.classList.add('hidden');
+            this.wtSetStatus('host', window.VLi18n ? window.VLi18n.t('wt.status_host') : 'Hosting');
+            this._wtStartSyncTimer();
+        } else {
+            this.wtSetStatus('error', result.error);
+        }
+    }
+
+    async wtCloseRoom() {
+        await window.vlApi.wtCloseRoom();
+        this.wtHostInfo.classList.add('hidden');
+        this.wtPublicAddressSection.classList.add('hidden');
+        this.wtCreateBtn.classList.remove('hidden');
+        this.wtPortInput.classList.remove('hidden');
+        this.wtHostAddress.textContent = '—';
+        this.wtPublicAddress.textContent = '—';
+        this._wtPeers.clear();
+        this.wtUpdatePeersUI();
+        this.wtSetStatus('disconnected');
+        this._wtStopSyncTimer();
+    }
+
+    async wtJoinRoom() {
+        const address = this.wtJoinInput.value.trim();
+        if (!address) return;
+        const result = await window.vlApi.wtJoinRoom(address);
+        if (result.success) {
+            this.wtJoinBtn.classList.add('hidden');
+            this.wtLeaveBtn.classList.remove('hidden');
+            this.wtJoinInput.disabled = true;
+            this.wtSetStatus('connected', window.VLi18n ? window.VLi18n.t('wt.status_connected') : 'Connected');
+            this._wtStartSyncTimer();
+        } else {
+            this.wtSetStatus('error', result.error);
+        }
+    }
+
+    async wtLeaveRoom() {
+        await window.vlApi.wtLeaveRoom();
+        this.wtJoinBtn.classList.remove('hidden');
+        this.wtLeaveBtn.classList.add('hidden');
+        this.wtJoinInput.disabled = false;
+        this.wtJoinInput.value = '';
+        this._wtPeers.clear();
+        this.wtUpdatePeersUI();
+        this.wtSetStatus('disconnected');
+        this._wtStopSyncTimer();
+    }
+
+    wtSetStatus(type, text) {
+        const colors = {
+            disconnected: '#666',
+            connected: '#22c55e',
+            host: '#6366f1',
+            error: '#ef4444'
+        };
+        if (this.wtStatusDot) this.wtStatusDot.style.background = colors[type] || '#666';
+        if (this.wtStatusText) {
+            this.wtStatusText.textContent = text || (window.VLi18n ? window.VLi18n.t('wt.disconnected') : 'Disconnected');
+        }
+    }
+
+    wtUpdatePeersUI() {
+        if (!this.wtPeersList) return;
+        const count = this._wtPeers.size;
+        if (count === 0) {
+            this.wtPeersList.textContent = window.VLi18n ? window.VLi18n.t('wt.no_peers') : 'No peers';
+        } else {
+            this.wtPeersList.textContent = (window.VLi18n ? window.VLi18n.t('wt.peers', { n: count }) : `${count} peers`) + `: ${Array.from(this._wtPeers).map(id => id.slice(0, 4)).join(', ')}`;
+        }
+    }
+
+    _wtBindVideoEvents() {
+        const sendState = (action, time) => {
+            if (this._wtIsRemoteUpdate) return;
+            window.vlApi.wtSend({ type: 'state', action, time: time ?? this.video.currentTime }).catch(() => {});
+        };
+
+        this.video.addEventListener('play', () => sendState('play'));
+        this.video.addEventListener('pause', () => sendState('pause'));
+        this.video.addEventListener('seeked', () => sendState('seek', this.video.currentTime));
+    }
+
+    _wtStartSyncTimer() {
+        this._wtStopSyncTimer();
+        this._wtSyncTimer = setInterval(() => {
+            if (!this.video.paused) {
+                window.vlApi.wtSend({
+                    type: 'state',
+                    action: 'sync',
+                    time: this.video.currentTime,
+                    playing: !this.video.paused
+                }).catch(() => {});
+            }
+        }, 2000);
+    }
+
+    _wtStopSyncTimer() {
+        if (this._wtSyncTimer) {
+            clearInterval(this._wtSyncTimer);
+            this._wtSyncTimer = null;
+        }
+    }
+
+    wtOnMessage(msg) {
+        if (!msg || msg.type !== 'state') return;
+        // Avoid echo loops
+        this._wtIsRemoteUpdate = true;
+        try {
+            const { action, time } = msg;
+            const threshold = 0.5; // seconds
+            switch (action) {
+                case 'play':
+                    if (this.video.paused) this.video.play();
+                    break;
+                case 'pause':
+                    if (!this.video.paused) this.video.pause();
+                    break;
+                case 'seek':
+                case 'sync':
+                    if (time !== undefined && Math.abs(this.video.currentTime - time) > threshold) {
+                        this.video.currentTime = time;
+                    }
+                    if (action === 'sync' && msg.playing !== undefined) {
+                        if (msg.playing && this.video.paused) this.video.play();
+                        else if (!msg.playing && !this.video.paused) this.video.pause();
+                    }
+                    break;
+            }
+        } finally {
+            this._wtIsRemoteUpdate = false;
+        }
+    }
+
+    wtOnStatus(status) {
+        if (!status) return;
+        if (status.type === 'disconnected') {
+            this.wtSetStatus('disconnected');
+            this._wtStopSyncTimer();
+            this._wtPeers.clear();
+            this.wtUpdatePeersUI();
+            // Reset UI buttons if client was connected
+            if (!this.wtJoinBtn.classList.contains('hidden')) {
+                this.wtJoinBtn.classList.remove('hidden');
+                this.wtLeaveBtn.classList.add('hidden');
+                this.wtJoinInput.disabled = false;
+            }
+        } else if (status.type === 'error') {
+            this.wtSetStatus('error', status.message);
+        }
     }
 }
 
