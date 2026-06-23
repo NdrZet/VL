@@ -133,23 +133,24 @@ class AudioManager {
 
         this.setLoading(true);
         try {
-            const result = await window.vlApi.invoke('extract-audio-track', {
-                filePath: extractingForPath,
-                trackIndex
-            });
-            if (this.player.currentVideoPath !== extractingForPath) return;
-
-            if (!result.success) {
-                this.player.showSleepNotification('AC3 audio: install ffmpeg for support', 5000);
+            const port = await window.vlApi.invoke('get-audio-stream-port');
+            if (!port) {
+                this.player.showSleepNotification('AC3 audio: stream server not ready', 5000);
                 return;
             }
-            await this.cleanupTempAudio();
-            this._externalAudioPath = result.tempPath;
-            this.setupExternalAudio('file:///' + result.tempPath.replace(/\\/g, '/'));
-            console.log('AC3 audio ready');
+
+            // Cleanup old temp files just in case
+            await window.vlApi.invoke('cleanup-temp-audio');
+            
+            this._audioStreamOffset = 0;
+            const streamUrl = `http://127.0.0.1:${port}/audio-stream?file=${encodeURIComponent(extractingForPath)}&track=${trackIndex}&start=0`;
+            
+            this._externalAudioPath = streamUrl;
+            this.setupExternalAudio(streamUrl);
+            console.log('AC3 audio stream ready');
         } catch (e) {
-            console.error('Audio extraction error:', e);
-            this.player.showSleepNotification('AC3 audio extraction failed', 4000);
+            console.error('Audio stream error:', e);
+            this.player.showSleepNotification('AC3 audio stream failed', 4000);
         } finally {
             this.setLoading(false);
         }
@@ -354,8 +355,32 @@ class AudioManager {
         this.externalAudio.muted  = this.video.muted;
     }
 
-    syncTime() {
-        if (this.externalAudio) this.externalAudio.currentTime = this.video.currentTime;
+    async syncTime() {
+        if (!this.externalAudio) return;
+
+        if (this._externalAudioPath && this._externalAudioPath.startsWith('http://')) {
+            const vTime = this.video.currentTime;
+            const expectedATime = vTime - (this._audioStreamOffset || 0);
+            const aTime = this.externalAudio.currentTime;
+            const diff = expectedATime - aTime;
+            
+            // Allow larger desync during seek before restarting stream to avoid bouncing
+            if (Math.abs(diff) > 2.0) {
+                this._audioStreamOffset = vTime;
+                const port = await window.vlApi.invoke('get-audio-stream-port');
+                this.externalAudio.src = `http://127.0.0.1:${port}/audio-stream?file=${encodeURIComponent(this.player.currentVideoPath)}&track=${this.currentAudioTrack.index}&start=${vTime}`;
+                if (!this.video.paused) {
+                    this.externalAudio.play().catch(() => {});
+                }
+            } else if (Math.abs(diff) > 0.2) {
+                // Adjust playback rate for minor desyncs
+                this.externalAudio.playbackRate = diff > 0 ? 1.05 : 0.95;
+            } else {
+                this.externalAudio.playbackRate = 1.0;
+            }
+        } else {
+            this.externalAudio.currentTime = this.video.currentTime;
+        }
     }
 
     syncPlaybackRate(rate) {
@@ -364,7 +389,7 @@ class AudioManager {
 
     syncPlay() {
         if (this.externalAudio) {
-            this.externalAudio.currentTime = this.video.currentTime;
+            this.syncTime();
             this.externalAudio.play().catch(() => {});
         }
     }

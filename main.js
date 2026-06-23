@@ -346,43 +346,65 @@ function findFfmpeg() {
     return null;
 }
 
-// IPC: транскодировать аудиодорожку в MP3/AAC через ffmpeg (для AC3/DTS)
-ipcMain.handle('extract-audio-track', async (event, { filePath, trackIndex }) => {
-    const ffmpegPath = findFfmpeg();
-    if (!ffmpegPath) return { success: false, reason: 'ffmpeg not found' };
+const http = require('http');
+const url = require('url');
 
-    const os = require('os');
-    const { spawn } = require('child_process');
-    const tempBase = path.join(os.tmpdir(), `vl_audio_${Date.now()}_t${trackIndex}`);
+let audioStreamPort = 0;
 
-    // Пробуем MP3, если не вышло — AAC
-    const attempts = [
-        { outPath: tempBase + '.mp3', args: ['-c:a', 'libmp3lame', '-b:a', '192k'] },
-        { outPath: tempBase + '.m4a', args: ['-c:a', 'aac',        '-b:a', '192k'] },
-    ];
+const audioServer = http.createServer((req, res) => {
+    const parsedUrl = url.parse(req.url, true);
+    if (parsedUrl.pathname === '/audio-stream') {
+        const filePath = parsedUrl.query.file;
+        const trackIndex = parsedUrl.query.track;
+        const start = parsedUrl.query.start || '0';
 
-    for (const { outPath, args } of attempts) {
-        const ok = await new Promise((resolve) => {
-            const proc = spawn(ffmpegPath, [
-                '-y', '-i', filePath,
-                '-map', `0:a:${trackIndex}`,
-                '-vn', ...args, outPath
-            ], { windowsHide: true });
-            proc.on('close', code => resolve(code === 0 && fs.existsSync(outPath)));
-            proc.on('error', () => resolve(false));
+        const ffmpegPath = findFfmpeg();
+        if (!ffmpegPath) {
+            res.writeHead(500);
+            return res.end('ffmpeg not found');
+        }
+
+        res.writeHead(200, {
+            'Content-Type': 'audio/mpeg',
+            'Transfer-Encoding': 'chunked',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
         });
-        if (ok) return { success: true, tempPath: outPath };
+
+        const { spawn } = require('child_process');
+        const proc = spawn(ffmpegPath, [
+            '-ss', start,
+            '-i', filePath,
+            '-map', `0:a:${trackIndex}`,
+            '-c:a', 'libmp3lame', '-b:a', '192k',
+            '-f', 'mp3',
+            'pipe:1'
+        ], { windowsHide: true });
+
+        proc.stdout.pipe(res);
+
+        proc.on('error', () => {
+            if (!res.headersSent) res.writeHead(500);
+            res.end();
+        });
+
+        req.on('close', () => {
+            proc.kill();
+        });
+    } else {
+        res.writeHead(404);
+        res.end();
     }
-    return { success: false, reason: 'transcoding failed' };
 });
 
-// IPC: удалить временный аудиофайл
-ipcMain.handle('cleanup-temp-audio', (event, filePath) => {
-    try {
-        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        return true;
-    } catch { return false; }
+audioServer.listen(0, '127.0.0.1', () => {
+    audioStreamPort = audioServer.address().port;
 });
+
+ipcMain.handle('get-audio-stream-port', () => audioStreamPort);
+
+// Keep this around just in case frontend still calls it during transition
+ipcMain.handle('cleanup-temp-audio', () => true);
 
 // ── IPC: получить аудиодорожки (ffprobe → встроенный MKV-парсер) ──────────
 ipcMain.handle('get-audio-tracks-ffprobe', (event, filePath) => {
